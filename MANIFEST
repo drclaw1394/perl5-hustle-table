@@ -1,0 +1,6 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/Regex-Dispatcher.t
+lib/Regex/Dispatcher.pm
