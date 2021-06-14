@@ -1,11 +1,21 @@
 package Regex::Dispatcher;
+use version; our $VERSION=version->declare("v0.0.1");
 
-use 5.028002;
 use strict;
 use warnings;
+use Carp qw<carp>;
+
+use feature "refaliasing";
+no warnings "experimental";
+use feature "switch";
+use feature "state";
 
 require Exporter;
-use AutoLoader qw(AUTOLOAD);
+#use AutoLoader qw(AUTOLOAD);
+
+#constants for entry feilds
+use enum (qw<regex_ sub_ id_ count_>);
+use enum(qw<LOOP CACHED_LOOP DYNAMIC CACHED_DYNAMIC>);
 
 our @ISA = qw(Exporter);
 
@@ -26,10 +36,194 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = '0.01';
 
 
 # Preloaded methods go here.
+sub new {
+	my $class=shift//__PACKAGE__;
+	bless [],$class;
+}
+sub add {
+	state $id=0;
+	my ($self,$regex,$sub)=@_;
+	$id++;
+	my $entry=[$regex,$sub,$id,0];
+	push @$self, $entry;
+	return $id;
+}
+
+sub remove {
+	my ($self,$id) =@_;
+	for(0..@$self-1){
+		if($self->[$_][id_]==$id){
+			return splice @$self, $_,1;
+		}
+	}
+}
+
+sub resetCounters {
+	\my @t=shift; #self
+	for (@t){
+		$_->[count_]=0;
+	}
+}
+
+sub build {
+	my $self=shift;
+	my %options=@_;
+	$options{type}//="loop";
+	if(defined $options{cached} and $options{cached}){
+		$options{type}.="_cached";
+	}
+	if(defined $options{reorder} and $options{reorder}){
+			
+		$self->_reorder;
+	}
+
+	do {
+		given($options{type}){
+			when(/loop/i){
+				$self->_buildLoop($options{context});
+
+			}
+			when(/loop_cached/){
+				$self->_buildLoopCached($options{context},$options{cache});
+			}
+			when(/dynamic/){
+
+				$self->_buildDynamic($options{context});
+				
+			}
+			when(/dynamic_cached/){
+
+				$self->_buildDynamicCached($options{context},$options{cache});
+
+			}
+			default {
+				#assume loop
+				$self->_buildLoop($options{context});
+			}
+		}
+	}
+}
+
+#Private interface
+sub _reorder{
+	\my @self=shift;	#let sort work inplace
+	@self=sort {$b->[2] <=> $a->[2]} @self;
+	1;
+}
+
+sub _buildLoop {
+	my ($table,$ctx)=@_;
+	sub {
+		my ($dut)=@_;
+		\my @table=$table;
+		for(0..@table-1){
+			if($dut=~ /$table[$_][regex_]/){
+				$table[$_][count_]++;
+				return $table[$_][sub_]($ctx);	#call the dispatch
+			}
+
+			#returns sub ref, but no access to captures
+
+		}
+		undef;
+	}
+}
+
+sub _buildLoopCached{
+	my ($table,$ctx,$cache)=@_;
+	sub {
+		my ($dut)=@_;
+		given ($cache->{$dut}){
+				when(defined){
+					$_->[count_]++;
+					/$_->[regex_]/;
+					$_->[sub_]->($ctx);
+					return;
+				}
+				default{}
+		}
+
+		\my @table=$table;
+		for(0..@table-1){
+			if($dut=~ /$table[$_][regex_]/){
+				$table[$_][count_]++;
+				$cache->{$dut}=$table[$_];
+				return $table[$_][sub_]($ctx);	#call the dispatch
+			}
+
+			#returns sub ref, but no access to captures
+
+		}
+		undef;
+	}
+		
+}
+
+sub _buildDynamic {
+	\my @table=shift; #self
+	my $ctx=shift;
+	my $d="sub {\n";
+	$d.='my ($dut)=@_;'."\n";
+	$d.=' given ($dut) {'."\n";
+	for (0..@table-1) {
+		my $pre='$table['.$_.']';
+
+		$d.='when (/'.$pre."[regex_]/){\n";
+		$d.=$pre."[count_]++;\n";
+		$d.=$pre.'[sub_]->($ctx);'."\n";
+		$d.="}\n";
+	}
+	$d.="default {\n";
+	$d.="}\n";
+	$d.="}\n}\n";
+	#print $d;
+	eval($d);
+}
+
+sub _buildDynamicCached{
+	\my @table=shift; #self
+	my $ctx=shift;
+	my $cache=shift;
+	if(ref $cache ne "HASH"){
+		carp "Cache provided isn't a hash. Using internal cache with no size limits";
+	}
+
+	
+	my $d="sub {\n";
+	$d.='my ($dut)=@_;'."\n";
+	$d.='given($cache->{$dut}){
+		when(defined){
+			$_->[count_]++;		#update hit counter
+			/$_->[regex_]/;
+			$_->[sub_]->($ctx);	#execute. Return code indicates if the match is to be cached
+			return;
+		}
+		default {
+		}
+	}';
+	$d.=' given ($dut) {'."\n";
+
+
+	for (0..@table-1) {
+		my $pre='$table['.$_.']';
+
+		$d.='when (/'.$pre."[regex_]/){\n";
+		$d.=$pre."[count_]++;\n";
+		$d.='$cache->{$dut}='.$pre.";\n";
+		$d.=$pre.'[sub_]->($ctx);'."\n";
+		$d.="}\n";
+	}
+	$d.="default {\n";
+	$d.="}\n";
+	$d.="}\n}\n";
+	#print $d;
+	eval($d);
+}
+
+
 
 # Autoload methods go after =cut, and are processed by the autosplit program.
 
@@ -39,20 +233,60 @@ __END__
 
 =head1 NAME
 
-Regex::Dispatcher - Perl extension for blah blah blah
+Regex::Dispatcher - Fast dispatch on string matching
 
 =head1 SYNOPSIS
 
   use Regex::Dispatcher;
-  blah blah blah
+
+  #Create a new object and add entries
+  
+  my $dis=Regex::Dispatcher->new;
+  $dis->add(/regex/,sub{ #dispatch vector});
+
+  my $ctx={some=>"value", passed=>"to", dispatch=>"vectors"};		
+
+  #Direct looping over the table
+  my $dispatch=$dis->loopDispatch("string to matach against", ctx);
+
+  #or
+  
+  #Dynamic generated lookup table
+  my $table=dis->buildDispatch;
+
+  $table->("string to match against", ctx);
+
+  #optional
+
+  #Optimise the table
+  $dis->optimise;
+
+
 
 =head1 DESCRIPTION
 
-Stub documentation for Regex::Dispatcher, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+This module provides small class to create, build and match against a dispatch table optimised for string data.
+It's intended goals are:
+ 
+=over 
 
-Blah blah blah.
+=item Relatively small memory footprint
+
+=item Fast and Optimising
+
+=item Flexible and using perl regex power
+
+=back
+
+=head2 HOW IT WORKS
+
+The table contains entries which contains a regular expression, a target sub routines to call when the regex matches, and a count used for monitoring caching.
+
+
+
+
+
+
 
 =head2 EXPORT
 
