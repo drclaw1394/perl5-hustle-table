@@ -17,6 +17,7 @@ require Exporter;
 use enum (qw<regex_ sub_ id_ count_>);
 use enum(qw<LOOP CACHED_LOOP DYNAMIC CACHED_DYNAMIC>);
 
+use enum (qw<NO_CACHE_INPUT>);
 our @ISA = qw(Exporter);
 
 # Items to export into callers namespace by default. Note: do not export
@@ -41,7 +42,7 @@ our @EXPORT = qw(
 # Preloaded methods go here.
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [[qr/.*/,sub {},-1,0]],$class;	#Prefill with default handler
+	bless [[qr/.*/,sub {NO_CACHE_INPUT},-1,0]],$class;	#Prefill with default handler
 }
 
 #Add and handler and returns an id which can be used to remove it later
@@ -120,17 +121,19 @@ sub build {
 #Private interface
 sub _reorder{
 	\my @self=shift;	#let sort work inplace
-	@self=sort {$b->[2] <=> $a->[2]} @self;
+	my $default=pop @self;
+	@self=sort {$b->[count_] <=> $a->[count_]} @self;
+	push @self, $default;
 	1;
 }
 
 sub _buildLoop {
 	my ($table,$ctx)=@_;
 	sub {
-		my ($dut)=@_;
+		#my ($dut)=@_;
 		\my @table=$table;
 		for(0..@table-1){
-			if($dut=~ /$table[$_][regex_]/){
+			if($_[0]=~ /$table[$_][regex_]/){
 				$table[$_][count_]++;
 				return $table[$_][sub_]($ctx);	#call the dispatch
 			}
@@ -143,13 +146,14 @@ sub _buildLoop {
 }
 
 sub _buildLoopCached{
+	use Data::Dumper;
 	my ($table,$ctx,$cache)=@_;
 	sub {
-		my ($dut)=@_;
-		given ($cache->{$dut}){
+		#my ($dut)=@_;
+		given ($cache->{$_[0]}){
 				when(defined){
 					$_->[count_]++;
-					/$_->[regex_]/;
+					$_[0]=~/$_->[regex_]/;
 					$_->[sub_]->($ctx);
 					return;
 				}
@@ -158,10 +162,10 @@ sub _buildLoopCached{
 
 		\my @table=$table;
 		for(0..@table-1){
-			if($dut=~ /$table[$_][regex_]/){
+			if($_[0]=~ /$table[$_][regex_]/){
 				$table[$_][count_]++;
-				$cache->{$dut}=$table[$_];
-				return $table[$_][sub_]($ctx);	#call the dispatch
+				$cache->{$_[0]}=$table[$_] unless $table[$_][sub_]($ctx);	#call the dispatch
+				return;
 			}
 
 			#returns sub ref, but no access to captures
@@ -176,8 +180,8 @@ sub _buildDynamic {
 	\my @table=shift; #self
 	my $ctx=shift;
 	my $d="sub {\n";
-	$d.='my ($dut)=@_;'."\n";
-	$d.=' given ($dut) {'."\n";
+	#$d.='my ($dut)=@_;'."\n";
+	$d.=' given ($_[0]) {'."\n";
 	for (0..@table-1) {
 		my $pre='$table['.$_.']';
 
@@ -203,8 +207,8 @@ sub _buildDynamicCached{
 
 	
 	my $d="sub {\n";
-	$d.='my ($dut)=@_;'."\n";
-	$d.='given($cache->{$dut}){
+	#$d.='my ($dut)=@_;'."\n";
+	$d.='given($cache->{$_[0]}){
 		when(defined){
 			$_->[count_]++;		#update hit counter
 			/$_->[regex_]/;
@@ -214,7 +218,7 @@ sub _buildDynamicCached{
 		default {
 		}
 	}';
-	$d.=' given ($dut) {'."\n";
+	$d.=' given ($_[0]) {'."\n";
 
 
 	for (0..@table-1) {
@@ -222,8 +226,7 @@ sub _buildDynamicCached{
 
 		$d.='when (/'.$pre."[regex_]/){\n";
 		$d.=$pre."[count_]++;\n";
-		$d.='$cache->{$dut}='.$pre.";\n";
-		$d.=$pre.'[sub_]->($ctx);'."\n";
+		$d.='$cache->{$_[0]}='."$pre unless $pre".'[sub_]->($ctx);'."\n";
 		$d.="}\n";
 	}
 	$d.="default {\n";
