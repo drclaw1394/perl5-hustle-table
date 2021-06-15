@@ -13,11 +13,11 @@ use Regex::Dispatcher;
 my @hits;
 
 my @list=(
-	[qr|/absolute/url/to/service(\d+)|, sub {}],
-	[qr{/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {}],
-	[qr|/absolute/url/to/product(\d+)|, sub {}],
-	[qr|/absolute/url/to/other(\d+)|, sub {}],
-	[qr|/ws(\d+)|, sub {}],
+	[qr|^/absolute/url/to/service(\d+)|, sub {}],
+	[qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {1}],
+	[qr|^/absolute/url/to/product(\d+)|, sub {}],
+	[qr|^/absolute/url/to/other(\d+)|, sub {}],
+	[qr|^/ws(\d+)|, sub {}],
 );
 
 my @dispatchers=(Regex::Dispatcher->new(),

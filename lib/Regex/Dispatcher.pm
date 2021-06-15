@@ -40,6 +40,10 @@ our @EXPORT = qw(
 
 
 # Preloaded methods go here.
+#
+#
+#Public API
+#
 sub new {
 	my $class=shift//__PACKAGE__;
 	bless [[qr/.*/,sub {NO_CACHE_INPUT},-1,0]],$class;	#Prefill with default handler
@@ -118,7 +122,9 @@ sub build {
 	}
 }
 
-#Private interface
+#
+#Private API
+#
 sub _reorder{
 	\my @self=shift;	#let sort work inplace
 	my $default=pop @self;
@@ -135,7 +141,8 @@ sub _buildLoop {
 		for(0..@table-1){
 			if($_[0]=~ /$table[$_][regex_]/){
 				$table[$_][count_]++;
-				return $table[$_][sub_]($ctx);	#call the dispatch
+				$table[$_][sub_]($ctx);	#call the dispatch
+				return;
 			}
 
 			#returns sub ref, but no access to captures
