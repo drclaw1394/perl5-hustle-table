@@ -41,15 +41,25 @@ our @EXPORT = qw(
 # Preloaded methods go here.
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [],$class;
+	bless [[qr/.*/,sub {},-1,0]],$class;	#Prefill with default handler
 }
+
+#Add and handler and returns an id which can be used to remove it later
 sub add {
 	state $id=0;
 	my ($self,$regex,$sub)=@_;
 	$id++;
 	my $entry=[$regex,$sub,$id,0];
-	push @$self, $entry;
+	splice @$self, @$self-1,0, $entry;	#add before last element (default)
 	return $id;
+}
+
+#overwrites the default handler. if no
+sub setDefault {
+	state $id=0;
+	my ($self,$regex,$sub)=@_;
+	my $entry=[$regex,$sub,$id,-1];
+	$self->[@$self-1]=$entry;
 }
 
 sub remove {
@@ -72,7 +82,7 @@ sub build {
 	my $self=shift;
 	my %options=@_;
 	$options{type}//="loop";
-	if(defined $options{cached} and $options{cached}){
+	if(defined $options{cache} and $options{cache}){
 		$options{type}.="_cached";
 	}
 	if(defined $options{reorder} and $options{reorder}){
@@ -82,19 +92,19 @@ sub build {
 
 	do {
 		given($options{type}){
-			when(/loop/i){
+			when(/^loop$/i){
 				$self->_buildLoop($options{context});
 
 			}
-			when(/loop_cached/){
+			when(/^loop_cached$/i){
 				$self->_buildLoopCached($options{context},$options{cache});
 			}
-			when(/dynamic/){
+			when(/^dynamic$/i){
 
 				$self->_buildDynamic($options{context});
 				
 			}
-			when(/dynamic_cached/){
+			when(/^dynamic_cached$/i){
 
 				$self->_buildDynamicCached($options{context},$options{cache});
 
