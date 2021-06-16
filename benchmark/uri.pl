@@ -13,11 +13,11 @@ use Regex::Dispatcher;
 my @hits;
 
 my @list=(
-	[qr|^/absolute/url/to/service(\d+)|, sub {}],
-	[qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {}],
-	[qr|^/absolute/url/to/product(\d+)|, sub {}],
-	[qr|^/absolute/url/to/other(\d+)|, sub {}],
-	[qr|^/ws(\d+)|, sub {}],
+        [qr|^/absolute/url/to/service(\d+)|, sub {}],
+        [qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {}],
+        [qr|^/absolute/url/to/product(\d+)|, sub {}],
+        [qr|^/absolute/url/to/other(\d+)|, sub {}],
+        ["/ws5", sub {}],
 );
 
 my @dispatchers=(Regex::Dispatcher->new(),
@@ -54,11 +54,11 @@ my @uri=qw(
 	/static/resource/image.jpg
 	/absolute/url/to/product
 	/absolute/url/to/other
-	/ws|
+	/ws
 	);
 
 say "Building samples";
-my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_].int($_)} random_normal($count, scalar(@uri)/2, 2);
+my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_].int($_)} random_normal($count, int(scalar(@uri)/2), 2);
 
 #print @samples,"\n";;
 print "NO reordering\n";
@@ -70,7 +70,6 @@ for my $exe (@exe){
 		}
 	};
 }
-
 @options=(
 	{type=>"loop",cache=>undef,reorder=>1},
 	{type=>"loop",cache=>{},reorder=>1},

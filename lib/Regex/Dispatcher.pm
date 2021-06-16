@@ -10,6 +10,7 @@ no warnings "experimental";
 use feature "switch";
 use feature "state";
 
+use constant DEBUG=>0;
 require Exporter;
 #use AutoLoader qw(AUTOLOAD);
 
@@ -138,11 +139,13 @@ sub _buildLoop {
 	sub {
 		#my ($dut)=@_;
 		\my @table=$table;
-		for(0..@table-1){
-			if($_[0]=~ /$table[$_][regex_]/){
-				$table[$_][count_]++;
-				$table[$_][sub_]($ctx);	#call the dispatch
-				return;
+		for my $index (0..@table-1){
+			given($_[0]){
+				when($table[$index][regex_]){
+					$table[$index][count_]++;
+					$table[$index][sub_]($ctx);	#call the dispatch
+					return;
+				}
 			}
 
 			#returns sub ref, but no access to captures
@@ -164,7 +167,8 @@ sub _buildLoopCached{
 		given ($cache->{$_[0]}){
 				when(defined){
 					$_->[count_]++;
-					$_[0]=~/$_->[regex_]/;
+					DEBUG and print "Hit cache in loop\n";
+					$_[0]=~/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
 					delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
 					return;
 				}
@@ -172,11 +176,13 @@ sub _buildLoopCached{
 		}
 
 		\my @table=$table;
-		for(0..@table-1){
-			if($_[0]=~ /$table[$_][regex_]/){
-				$table[$_][count_]++;
-				$cache->{$_[0]}=$table[$_] unless $table[$_][sub_]($ctx);	#call the dispatch
-				return;
+		for my $index (0..@table-1){
+			given($_[0]){
+				when($table[$index][regex_]){
+					$table[$index][count_]++;
+					$cache->{$_}=$table[$index] unless $table[$index][sub_]($ctx);	#call the dispatch
+					return;
+				}
 			}
 
 			#returns sub ref, but no access to captures
@@ -196,7 +202,7 @@ sub _buildDynamic {
 	for (0..@table-1) {
 		my $pre='$table['.$_.']';
 
-		$d.='when (/'.$pre."[regex_]/){\n";
+		$d.='when ('.$pre."[regex_]){\n";
 		$d.=$pre."[count_]++;\n";
 		$d.=$pre.'[sub_]->($ctx);'."\n";
 		$d.="}\n";
@@ -222,8 +228,9 @@ sub _buildDynamicCached{
 	#$d.='my ($dut)=@_;'."\n";
 	$d.='given($cache->{$_[0]}){
 		when(defined){
+			DEBUG and print "Hit cache in dynamic\n";
 			$_->[count_]++;		#update hit counter
-			/$_->[regex_]/;
+			/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp";	#only do regex if we have to
 			delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
 			return;
 		}
@@ -236,7 +243,7 @@ sub _buildDynamicCached{
 	for (0..@table-1) {
 		my $pre='$table['.$_.']';
 
-		$d.='when (/'.$pre."[regex_]/){\n";
+		$d.='when ('.$pre."[regex_]){\n";
 		$d.=$pre."[count_]++;\n";
 		$d.='$cache->{$_[0]}='."$pre unless $pre".'[sub_]->($ctx);'."\n";
 		$d.="}\n";
