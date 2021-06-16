@@ -1,4 +1,4 @@
-package Regex::Dispatcher;
+package Hustle::Table;
 use version; our $VERSION=version->declare("v0.0.1");
 
 use strict;
@@ -38,6 +38,12 @@ our @EXPORT = qw(
 	
 );
 
+#TODO:
+# Pass arguments from dispatch call (use &sub to save realiasing the stack)
+# 	The ref to the table if the first argument
+# 	The input which matched is the second
+# 	remaining arguments as per the dispatch call
+#
 
 
 # Preloaded methods go here.
@@ -99,25 +105,25 @@ sub build {
 	do {
 		given($options{type}){
 			when(/^loop$/i){
-				$self->_buildLoop($options{context});
+				$self->_buildLoop();
 
 			}
 			when(/^loop_cached$/i){
-				$self->_buildLoopCached($options{context},$options{cache});
+				$self->_buildLoopCached($options{cache});
 			}
 			when(/^dynamic$/i){
 
-				$self->_buildDynamic($options{context});
+				$self->_buildDynamic();
 				
 			}
 			when(/^dynamic_cached$/i){
 
-				$self->_buildDynamicCached($options{context},$options{cache});
+				$self->_buildDynamicCached($options{cache});
 
 			}
 			default {
 				#assume loop
-				$self->_buildLoop($options{context});
+				$self->_buildLoop();
 			}
 		}
 	}
@@ -135,7 +141,7 @@ sub _reorder{
 }
 
 sub _buildLoop {
-	my ($table,$ctx)=@_;
+	my ($table)=@_;
 	sub {
 		#my ($dut)=@_;
 		\my @table=$table;
@@ -143,8 +149,10 @@ sub _buildLoop {
 			given($_[0]){
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
-					$table[$index][sub_]($ctx);	#call the dispatch
+					&{$table[$index][sub_]};
 					return;
+				}
+				default {
 				}
 			}
 
@@ -157,7 +165,7 @@ sub _buildLoop {
 
 sub _buildLoopCached{
 	use Data::Dumper;
-	my ($table,$ctx,$cache)=@_;
+	my ($table,$cache)=@_;
 	if(ref $cache ne "HASH"){
 		carp "Cache provided isn't a hash. Using internal cache with no size limits";
 		$cache={};
@@ -169,7 +177,7 @@ sub _buildLoopCached{
 					$_->[count_]++;
 					DEBUG and print "Hit cache in loop\n";
 					$_[0]=~/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
-					delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
+					delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
 					return;
 				}
 				default{}
@@ -180,8 +188,11 @@ sub _buildLoopCached{
 			given($_[0]){
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
-					$cache->{$_}=$table[$index] unless $table[$index][sub_]($ctx);	#call the dispatch
+					$cache->{$_}=$table[$index] unless &{$table[$index][sub_]};	#call the dispatch
 					return;
+				}
+				default {
+
 				}
 			}
 
@@ -195,7 +206,6 @@ sub _buildLoopCached{
 
 sub _buildDynamic {
 	\my @table=shift; #self
-	my $ctx=shift;
 	my $d="sub {\n";
 	#$d.='my ($dut)=@_;'."\n";
 	$d.=' given ($_[0]) {'."\n";
@@ -204,7 +214,7 @@ sub _buildDynamic {
 
 		$d.='when ('.$pre."[regex_]){\n";
 		$d.=$pre."[count_]++;\n";
-		$d.=$pre.'[sub_]->($ctx);'."\n";
+		$d.='&{'.$pre.'[sub_]};'."\n";
 		$d.="}\n";
 	}
 	$d.="default {\n";
@@ -216,7 +226,6 @@ sub _buildDynamic {
 
 sub _buildDynamicCached{
 	\my @table=shift; #self
-	my $ctx=shift;
 	my $cache=shift;
 	if(ref $cache ne "HASH"){
 		carp "Cache provided isn't a hash. Using internal cache with no size limits";
@@ -231,7 +240,7 @@ sub _buildDynamicCached{
 			DEBUG and print "Hit cache in dynamic\n";
 			$_->[count_]++;		#update hit counter
 			/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp";	#only do regex if we have to
-			delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
+			delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
 			return;
 		}
 		default {
@@ -245,7 +254,7 @@ sub _buildDynamicCached{
 
 		$d.='when ('.$pre."[regex_]){\n";
 		$d.=$pre."[count_]++;\n";
-		$d.='$cache->{$_[0]}='."$pre unless $pre".'[sub_]->($ctx);'."\n";
+		$d.='$cache->{$_[0]}='."$pre unless &{$pre".'[sub_]};'."\n";
 		$d.="}\n";
 	}
 	$d.="default {\n";

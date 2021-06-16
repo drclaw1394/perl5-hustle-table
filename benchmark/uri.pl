@@ -8,7 +8,7 @@ use Data::Dumper;
 use feature "say";
 
 
-use Regex::Dispatcher;
+use Hustle::Table; 
 
 my @hits;
 
@@ -20,10 +20,10 @@ my @list=(
         ["/ws5", sub {}],
 );
 
-my @dispatchers=(Regex::Dispatcher->new(),
-	Regex::Dispatcher->new(),
-	Regex::Dispatcher->new(),
-	Regex::Dispatcher->new(),
+my @dispatchers=(Hustle::Table->new(),
+	Hustle::Table->new(),
+	Hustle::Table->new(),
+	Hustle::Table->new(),
 );
 
 my @options=(
@@ -37,7 +37,7 @@ my @options=(
 my @exe;
 my @dis;
 for my $option (@options){
-	my $dis=Regex::Dispatcher->new();
+	my $dis=Hustle::Table->new();
 	push @dis, $dis;	
 	for(@list){
 		$dis->add($_->[0],$_->[1]);
@@ -66,10 +66,11 @@ for my $exe (@exe){
 	timethis 200, sub {
 		for my $sample (@samples){
 			#say $sample;
-			$exe->($sample,[]);
+			$exe->($sample,"asdf");
 		}
 	};
 }
+
 @options=(
 	{type=>"loop",cache=>undef,reorder=>1},
 	{type=>"loop",cache=>{},reorder=>1},
@@ -81,7 +82,7 @@ print "YES reordering\n";
 @exe=();
 my $i=0;
 for my $option (@options){
-	my $dis=$dis[$i];#Regex::Dispatcher->new();
+	my $dis=$dis[$i];#Hustle::Table->new();
 	
 	push @exe, $dis->build(%$option);
 	$i++;
@@ -91,7 +92,7 @@ for my $option (@options){
 for my $exe (@exe){
 	timethis 200, sub {
 		for my $sample (@samples){
-			$exe->($sample,[]);
+			$exe->($sample,qw<argument 1 2 3>);
 		}
 	};
 }
