@@ -14,7 +14,7 @@ my @hits;
 
 my @list=(
 	[qr|^/absolute/url/to/service(\d+)|, sub {}],
-	[qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {1}],
+	[qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {}],
 	[qr|^/absolute/url/to/product(\d+)|, sub {}],
 	[qr|^/absolute/url/to/other(\d+)|, sub {}],
 	[qr|^/ws(\d+)|, sub {}],
@@ -56,7 +56,9 @@ my @uri=qw(
 	/absolute/url/to/other
 	/ws|
 	);
-my @samples=map {$uri[$_].int($_)} random_normal($count, scalar(@uri)/2, 0.5);
+
+say "Building samples";
+my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_].int($_)} random_normal($count, scalar(@uri)/2, 2);
 
 #print @samples,"\n";;
 print "NO reordering\n";

@@ -155,13 +155,17 @@ sub _buildLoop {
 sub _buildLoopCached{
 	use Data::Dumper;
 	my ($table,$ctx,$cache)=@_;
+	if(ref $cache ne "HASH"){
+		carp "Cache provided isn't a hash. Using internal cache with no size limits";
+		$cache={};
+	}
 	sub {
 		#my ($dut)=@_;
 		given ($cache->{$_[0]}){
 				when(defined){
 					$_->[count_]++;
 					$_[0]=~/$_->[regex_]/;
-					$_->[sub_]->($ctx);
+					delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
 					return;
 				}
 				default{}
@@ -210,6 +214,7 @@ sub _buildDynamicCached{
 	my $cache=shift;
 	if(ref $cache ne "HASH"){
 		carp "Cache provided isn't a hash. Using internal cache with no size limits";
+		$cache={};
 	}
 
 	
@@ -219,7 +224,7 @@ sub _buildDynamicCached{
 		when(defined){
 			$_->[count_]++;		#update hit counter
 			/$_->[regex_]/;
-			$_->[sub_]->($ctx);	#execute. Return code indicates if the match is to be cached
+			delete $cache->{$_[0]} if $_->[sub_]->($ctx); #delete if return is true
 			return;
 		}
 		default {
