@@ -13,17 +13,11 @@ use Hustle::Table;
 my @hits;
 
 my @list=(
-        [qr|^/absolute/url/to/service(\d+)|, sub {}],
-        [qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}, sub {}],
-        [qr|^/absolute/url/to/product(\d+)|, sub {}],
-        [qr|^/absolute/url/to/other(\d+)|, sub {}],
-        ["/ws5", sub {}],
-);
-
-my @dispatchers=(Hustle::Table->new(),
-	Hustle::Table->new(),
-	Hustle::Table->new(),
-	Hustle::Table->new(),
+        qr|^/absolute/url/to/service(\d+)|noa=> sub {},
+        qr{^/static/resource/(image\.(?:jpg|png|))(\d+)}noa=>sub {},
+        qr|^/absolute/url/to/product(\d+)|noa=> sub {},
+        qr|^/absolute/url/to/other(\d+)|noa=> sub {},
+        "/ws5"=> sub {},
 );
 
 my @options=(
@@ -34,16 +28,16 @@ my @options=(
 );
 
 
-my @exe;
-my @dis;
+my @dispatch;
+my @tables;
+
 for my $option (@options){
-	my $dis=Hustle::Table->new();
-	push @dis, $dis;	
-	for(@list){
-		$dis->add($_->[0],$_->[1]);
-	}
-	push @exe, $dis->build(%$option);
-	#say Dumper $dis;
+	my $table=Hustle::Table->new();
+	push @tables, $table;	
+	$table->add(@list);
+	$table->default( sub {});
+	push @dispatch, $table->build(%$option);
+	#say Dumper $table;
 
 }
 my $count=10000;
@@ -55,6 +49,7 @@ my @uri=qw(
 	/absolute/url/to/product
 	/absolute/url/to/other
 	/ws
+	/asdf
 	);
 
 say "Building samples";
@@ -62,11 +57,11 @@ my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_].int($_)} random_n
 
 #print @samples,"\n";;
 print "NO reordering\n";
-for my $exe (@exe){
+for my $dispatch (@dispatch){
 	timethis 200, sub {
 		for my $sample (@samples){
 			#say $sample;
-			$exe->($sample,"asdf");
+			$dispatch->($sample);
 		}
 	};
 }
@@ -79,20 +74,20 @@ for my $exe (@exe){
 );
 
 print "YES reordering\n";
-@exe=();
+@dispatch=();
 my $i=0;
 for my $option (@options){
-	my $dis=$dis[$i];#Hustle::Table->new();
+	my $table=$tables[$i];#Hustle::Table->new();
 	
-	push @exe, $dis->build(%$option);
+	push @dispatch, $table->build(%$option);
 	$i++;
-	#say Dumper $dis;
+	#say Dumper $table;
 
 }
-for my $exe (@exe){
+for my $dispatch (@dispatch){
 	timethis 200, sub {
 		for my $sample (@samples){
-			$exe->($sample,qw<argument 1 2 3>);
+			$dispatch->($sample);
 		}
 	};
 }

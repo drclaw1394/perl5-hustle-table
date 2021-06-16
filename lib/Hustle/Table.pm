@@ -3,7 +3,7 @@ use version; our $VERSION=version->declare("v0.0.1");
 
 use strict;
 use warnings;
-use Carp qw<carp>;
+use Carp qw<carp croak>;
 
 use feature "refaliasing";
 no warnings "experimental";
@@ -44,6 +44,9 @@ our @EXPORT = qw(
 # 	The input which matched is the second
 # 	remaining arguments as per the dispatch call
 #
+# Allow multiple entries to be added at once
+# Implement an update method to alter the vector for existing entry (ie sort order remains)
+#
 
 
 # Preloaded methods go here.
@@ -53,24 +56,33 @@ our @EXPORT = qw(
 #
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [[qr/.*/,sub {NO_CACHE_INPUT},-1,0]],$class;	#Prefill with default handler
+	bless [[undef,sub {},-1,0]],$class;	#Prefill with default handler
 }
 
 #Add and handler and returns an id which can be used to remove it later
 sub add {
 	state $id=0;
-	my ($self,$regex,$sub)=@_;
-	$id++;
-	my $entry=[$regex,$sub,$id,0];
-	splice @$self, @$self-1,0, $entry;	#add before last element (default)
-	return $id;
+	my $self=shift;
+
+	my @id;
+	croak "Odd number of test=>dispatch vectors" unless @_ % 2 ==0;
+	for my $i (0..@_/2-1){
+		$id++;
+		my $entry=[$_[$i*2],$_[$i*2+1],$id,0];
+		splice @$self, @$self-1,0, $entry;	#add before last element (default)
+		push @id, $id;
+	}
+	if(wantarray){
+		return @id;
+	}
+	return scalar @id;
 }
 
 #overwrites the default handler. if no
-sub setDefault {
+sub default {
 	state $id=0;
-	my ($self,$regex,$sub)=@_;
-	my $entry=[$regex,$sub,$id,-1];
+	my ($self,$sub)=@_;
+	my $entry=[undef,$sub,-1,0];
 	$self->[@$self-1]=$entry;
 }
 
@@ -145,7 +157,7 @@ sub _buildLoop {
 	sub {
 		#my ($dut)=@_;
 		\my @table=$table;
-		for my $index (0..@table-1){
+		for my $index (0..@table-2){	#do not process the last element
 			given($_[0]){
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
@@ -156,10 +168,10 @@ sub _buildLoop {
 				}
 			}
 
-			#returns sub ref, but no access to captures
-
 		}
-		undef;
+		#if we make it here, we process the catch all
+		&{$table[$#table][sub_]};
+		#return;
 	}
 }
 
@@ -184,7 +196,7 @@ sub _buildLoopCached{
 		}
 
 		\my @table=$table;
-		for my $index (0..@table-1){
+		for my $index (0..@table-2){
 			given($_[0]){
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
@@ -196,10 +208,10 @@ sub _buildLoopCached{
 				}
 			}
 
-			#returns sub ref, but no access to captures
 
 		}
-		undef;
+		#if we make it here, we process the catch all
+		&{$table[$#table][sub_]};
 	}
 		
 }
@@ -209,7 +221,7 @@ sub _buildDynamic {
 	my $d="sub {\n";
 	#$d.='my ($dut)=@_;'."\n";
 	$d.=' given ($_[0]) {'."\n";
-	for (0..@table-1) {
+	for (0..@table-2) {
 		my $pre='$table['.$_.']';
 
 		$d.='when ('.$pre."[regex_]){\n";
@@ -218,6 +230,7 @@ sub _buildDynamic {
 		$d.="}\n";
 	}
 	$d.="default {\n";
+	$d.='&{$table[$#table][sub_]};';
 	$d.="}\n";
 	$d.="}\n}\n";
 	#print $d;
@@ -258,6 +271,7 @@ sub _buildDynamicCached{
 		$d.="}\n";
 	}
 	$d.="default {\n";
+	$d.='&{$table[$#table][sub_]};';
 	$d.="}\n";
 	$d.="}\n}\n";
 	#print $d;
