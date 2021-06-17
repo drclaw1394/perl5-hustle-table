@@ -1,0 +1,120 @@
+
+=head1 NAME
+
+Hustle::Table - Fast dynamic dispatching to subroutines
+
+=head1 SYNOPSIS
+
+  use Hustle::Table;
+
+  #Create a new object and add entries
+  
+  my $table=Hustle::Table->new;
+  $table->add(
+  	/regex match/		=>sub{ #dispatch vector},
+	"exact string match"	=> sub {}
+	123 			, sub {#non string match}
+  );
+
+  #Build the dispatcher
+  my $dispatch=$table->build(type=>"dynamic"); # or loop, loop_cached, dynamic_cached
+
+
+  #Dispatch
+  $dispatch->("thing to match");	# any number of arguments passsed to sub
+
+
+=head1 DESCRIPTION
+
+This module provides small class to construct a dispatch table and build a dispatcher subroutine for it. Multiple dispatchers types to choose from give the user tunable behaviour.
+
+
+ 
+=over 
+
+=item Uses buildin perl features  (regex, smartmatch)
+
+=item Cached prematching (optional)
+
+=item Basic hit count and optimising (optional)
+
+=item Fall through/catch all matching
+
+=back
+
+=head2 EXPORT
+
+No exports. Please use the object interface.
+
+
+
+=head2 How it works
+
+The table is essentially a list of entries, each containing:
+
+=over
+
+=item matcher
+
+	regular expression, string, number
+
+=item target
+
+	target subroutine to call when the regex matches
+
+=item id
+
+	id to help track this entry
+
+=item count
+
+	running total on how many times an entry has been dispatched successfully
+
+=back
+
+
+The list always has one entry which is the fallback or default which is called when no other entries match.
+
+
+Once the a table is created entries are added as an even numbered list of matcher=> sub pairs.
+
+	my $table=Hustle::Table->new;
+
+	$table->add(qr/Hello/, sub { say "There"; return;});
+
+
+
+
+
+=head1 Performance
+
+
+
+
+
+
+=head1 SEE ALSO
+
+Mention other useful documentation such as the documentation of
+related modules or operating system documentation (such as man pages
+in UNIX), or any relevant external documentation such as RFCs or
+standards.
+
+If you have a mailing list set up for your module, mention it here.
+
+If you have a web site set up for your module, mention it here.
+
+=head1 AUTHOR
+
+Ruben Westerberg, E<lt>drclaw@sd.apple.comE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2021 by Ruben Westerberg
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.28.2 or,
+at your option, any later version of Perl 5 you may have available.
+
+
+=cut

@@ -4,7 +4,7 @@ use version; our $VERSION=version->declare("v0.0.1");
 use strict;
 use warnings;
 use Carp qw<carp croak>;
-
+use Data::Dumper;
 use feature "refaliasing";
 no warnings "experimental";
 use feature "switch";
@@ -56,27 +56,38 @@ our @EXPORT = qw(
 #
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [[undef,sub {},-1,0]],$class;	#Prefill with default handler
+	bless [[undef,sub {print "df";},"default",0]],$class;	#Prefill with default handler
 }
 
 #Add and handler and returns an id which can be used to remove it later
+
 sub add {
-	state $id=0;
 	my $self=shift;
 
-	my @id;
-	croak "Odd number of test=>dispatch vectors" unless @_ % 2 ==0;
-	for my $i (0..@_/2-1){
-		$id++;
-		my $entry=[$_[$i*2],$_[$i*2+1],$id,0];
-		splice @$self, @$self-1,0, $entry;	#add before last element (default)
-		push @id, $id;
+	croak "Odd number of test=>dispatch vectors" unless @_ % 4 ==0;
+	for my $i (0..@_/4-1){
+		my $entry=[@_[$i*4 .. $i*4+3]];
+		$entry->[id_]=$entry->[id_];
+		$entry->[count_]=0 unless defined $entry->[count_] and int $entry->[count_];
+		unless(defined $entry->[id_] and $entry->[id_] eq "default"){
+			splice @$self, @$self-1,0, $entry;	#add before last element (default)
+		}
+		else {
+			$self->[@$self-1]=$entry;
+		}
 	}
-	if(wantarray){
-		return @id;
-	}
-	return scalar @id;
+	return;
 }
+
+########################################################
+# sub dumpTable {                                      #
+#         for(@$self){                                 #
+#                 my %h;                               #
+#                 @h{qw<matcher sub id count>}=$_->@*; #
+#                                                      #
+#         }                                            #
+# }                                                    #
+########################################################
 
 #overwrites the default handler. if no
 sub default {
@@ -116,6 +127,13 @@ sub build {
 
 	do {
 		given($options{type}){
+			when(/^loopauto$/i){
+				$self->_buildLoopAuto();
+
+			}
+			when(/^loopauto_cached$/i){
+				$self->_buildLoopAutoCached($options{cache});
+			}
 			when(/^loop$/i){
 				$self->_buildLoop();
 
@@ -151,8 +169,84 @@ sub _reorder{
 	push @self, $default;
 	1;
 }
+sub _buildLoopAuto {
+	print  "buildLoopAuto\n";
+	my ($table)=@_;
+	sub {
+		#my ($dut)=@_;
+		\my @table=$table;
+		for my $index (0..@table-2){	#do not process the last element
+			given($_[0]){
+				when($table[$index][regex_]){
+					$table[$index][count_]++;
+					&{$table[$index][sub_]};
+					if($table[$index][count_]>$table[$index-1][count_]){
+						my $temp=$table[$index];
+						$table[$index]=$table[$index-1];
+						$table[$index-1]=$temp;
+					}
+					return;
+				}
+				default {
+				}
+			}
+
+		}
+		#if we make it here, we process the catch all
+		&{$table[$table->@*-1][sub_]};
+		#return;
+	}
+}
+
+sub _buildLoopAutoCached {
+	use Data::Dumper;
+	print  "buildLoopAutoCached\n";
+	my ($table,$cache)=@_;
+	if(ref $cache ne "HASH"){
+		carp "Cache provided isn't a hash. Using internal cache with no size limits";
+		$cache={};
+	}
+	sub {
+		#my ($dut)=@_;
+		given ($cache->{$_[0]}){
+				when(defined){
+					#$_->[count_]++;
+					#TODO: update table order?
+					DEBUG and print "Hit cache in loop\n";
+					$_[0]=~ $_->[regex_] if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
+					delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
+					return;
+				}
+				default{}
+		}
+
+		\my @table=$table;
+		for my $index (0..@table-2){	#do not process the last element
+			given($_[0]){
+				when($table[$index][regex_]){
+					$table[$index][count_]++;
+					#&{$table[$index][sub_]};
+					$cache->{$_}=$table[$index] unless &{$table[$index][sub_]};	#call the dispatch
+					if($table[$index][count_]>$table[$index-1][count_]){
+						my $temp=$table[$index];
+						$table[$index]=$table[$index-1];
+						$table[$index-1]=$temp;
+					}
+					return;
+				}
+				default {
+				}
+			}
+
+		}
+		#if we make it here, we process the catch all
+		&{$table[$table->@*-1][sub_]};
+		#return;
+	}
+}
 
 sub _buildLoop {
+	print  "buildLoop\n";
 	my ($table)=@_;
 	sub {
 		#my ($dut)=@_;
@@ -170,12 +264,13 @@ sub _buildLoop {
 
 		}
 		#if we make it here, we process the catch all
-		&{$table[$#table][sub_]};
+		&{$table[$table->@*-1][sub_]};
 		#return;
 	}
 }
 
 sub _buildLoopCached{
+	print  "buildLoopCached\n";
 	use Data::Dumper;
 	my ($table,$cache)=@_;
 	if(ref $cache ne "HASH"){
@@ -188,7 +283,7 @@ sub _buildLoopCached{
 				when(defined){
 					$_->[count_]++;
 					DEBUG and print "Hit cache in loop\n";
-					$_[0]=~/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
+					$_[0]=~ $_->[regex_] if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
 					delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
 					return;
 				}
@@ -199,7 +294,7 @@ sub _buildLoopCached{
 		for my $index (0..@table-2){
 			given($_[0]){
 				when($table[$index][regex_]){
-					$table[$index][count_]++;
+				$table[$index][count_]++;
 					$cache->{$_}=$table[$index] unless &{$table[$index][sub_]};	#call the dispatch
 					return;
 				}
@@ -211,12 +306,13 @@ sub _buildLoopCached{
 
 		}
 		#if we make it here, we process the catch all
-		&{$table[$#table][sub_]};
+		&{$table[$table->@*-1][sub_]};
 	}
 		
 }
 
 sub _buildDynamic {
+	print  "buildDynamic\n";
 	\my @table=shift; #self
 	my $d="sub {\n";
 	#$d.='my ($dut)=@_;'."\n";
@@ -238,6 +334,7 @@ sub _buildDynamic {
 }
 
 sub _buildDynamicCached{
+	print  "buildDynamicCached\n";
 	\my @table=shift; #self
 	my $cache=shift;
 	if(ref $cache ne "HASH"){
@@ -252,7 +349,7 @@ sub _buildDynamicCached{
 		when(defined){
 			DEBUG and print "Hit cache in dynamic\n";
 			$_->[count_]++;		#update hit counter
-			/$_->[regex_]/ if ref($_->[regex_]) eq "Regexp";	#only do regex if we have to
+			$_[0] =~ $_->[regex_] if ref($_->[regex_]) eq "Regexp";	#only do regex if we have to
 			delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
 			return;
 		}
@@ -274,7 +371,6 @@ sub _buildDynamicCached{
 	$d.='&{$table[$#table][sub_]};';
 	$d.="}\n";
 	$d.="}\n}\n";
-	#print $d;
 	eval($d);
 }
 
@@ -284,93 +380,4 @@ sub _buildDynamicCached{
 
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
-=head1 NAME
-
-Regex::Dispatcher - Fast dispatch on string matching
-
-=head1 SYNOPSIS
-
-  use Regex::Dispatcher;
-
-  #Create a new object and add entries
-  
-  my $dis=Regex::Dispatcher->new;
-  $dis->add(/regex/,sub{ #dispatch vector});
-
-  my $ctx={some=>"value", passed=>"to", dispatch=>"vectors"};		
-
-  #Direct looping over the table
-  my $dispatch=$dis->loopDispatch("string to matach against", ctx);
-
-  #or
-  
-  #Dynamic generated lookup table
-  my $table=dis->buildDispatch;
-
-  $table->("string to match against", ctx);
-
-  #optional
-
-  #Optimise the table
-  $dis->optimise;
-
-
-
-=head1 DESCRIPTION
-
-This module provides small class to create, build and match against a dispatch table optimised for string data.
-It's intended goals are:
- 
-=over 
-
-=item Relatively small memory footprint
-
-=item Fast and Optimising
-
-=item Flexible and using perl regex power
-
-=back
-
-=head2 HOW IT WORKS
-
-The table contains entries which contains a regular expression, a target sub routines to call when the regex matches, and a count used for monitoring caching.
-
-
-
-
-
-
-
-=head2 EXPORT
-
-None by default.
-
-
-
-=head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
-
-=head1 AUTHOR
-
-Ruben Westerberg, E<lt>drclaw@sd.apple.comE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2021 by Ruben Westerberg
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.28.2 or,
-at your option, any later version of Perl 5 you may have available.
-
-
-=cut
