@@ -88,7 +88,19 @@ Once the a table is created entries are added as an even numbered list of matche
 
 =head1 Performance
 
+The concept is to perform less searching to find the dispatch vector. However the type of input does play an important role in determining the best way perform the search.
 
+=over
+
+=item Uniformly distributed input
+
+
+For uniformly distributed input, the fastest method is to use the dynamically generated non caching 
+method. Resorting or optimising search order has no real effect as the probablilty of each case is equal. In this case the method with the least run time overhead will perform the best.
+
+Caching can have a detrimental effect as it take cpu time to consult the cache
+
+=item 
 
 
 

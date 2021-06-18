@@ -208,21 +208,30 @@ sub _buildLoopAutoCached {
 	}
 	sub {
 		#my ($dut)=@_;
-		given ($cache->{$_[0]}){
-				when(defined){
-					#$_->[count_]++;
-					#TODO: update table order?
-					DEBUG and print "Hit cache in loop\n";
-					$_[0]=~ $_->[regex_] if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
-					delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
+		given($_[0]){
+			my $hit=$cache->{$_[0]};
+			if(defined $hit){
+				when(!defined $hit->[regex_]){
+					#print "When did not match. Assume default\n";
+					$hit->[count_]++;
+					#print "Hit cache in loop\n";
+					delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
 					return;
 				}
-				default{}
+				when($hit->[regex_]){
+					$hit->[count_]++;
+					#TODO: update table order?
+					DEBUG and print "Hit cache in loop\n";
+					#$_[0]=~ $_->[regex_] if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
+					delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+					return;
+				}
+			}
 		}
 
 		\my @table=$table;
-		for my $index (0..@table-2){	#do not process the last element
-			given($_[0]){
+		given($_[0]){
+			for my $index (0..@table-2){	#do not process the last element
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
 					#&{$table[$index][sub_]};
@@ -234,13 +243,12 @@ sub _buildLoopAutoCached {
 					}
 					return;
 				}
-				default {
-				}
 			}
 
 		}
 		#if we make it here, we process the catch all
-		&{$table[$table->@*-1][sub_]};
+		#&{$table[$table->@*-1][sub_]};
+		$cache->{$_[0]}=$table[$#table] unless &{$table[$table->@*-1][sub_]};
 		#return;
 	}
 }
@@ -251,14 +259,12 @@ sub _buildLoop {
 	sub {
 		#my ($dut)=@_;
 		\my @table=$table;
-		for my $index (0..@table-2){	#do not process the last element
-			given($_[0]){
+		given($_[0]){
+			for my $index (0..@table-2){	#do not process the last element
 				when($table[$index][regex_]){
 					$table[$index][count_]++;
 					&{$table[$index][sub_]};
 					return;
-				}
-				default {
 				}
 			}
 
@@ -279,34 +285,44 @@ sub _buildLoopCached{
 	}
 	sub {
 		#my ($dut)=@_;
-		given ($cache->{$_[0]}){
-				when(defined){
-					$_->[count_]++;
-					DEBUG and print "Hit cache in loop\n";
-					$_[0]=~ $_->[regex_] if ref($_->[regex_]) eq "Regexp"; #only do regex if we have to
-					delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
+		given($_[0]){
+			my $hit=$cache->{$_};
+			#print Dumper $hit;
+			if(defined $hit){
+				#print "Testing cache hit for ", Dumper $hit;
+				when(!defined $hit->[regex_]){
+					#print "When did not match. Assume default\n";
+					$hit->[count_]++;
+					#print "Hit cache in loop\n";
+					delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+					return;
+
+				}
+				when($hit->[regex_]){
+					$hit->[count_]++;
+					#print "Hit cache in loop\n";
+					delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
 					return;
 				}
-				default{}
+			}
 		}
 
 		\my @table=$table;
-		for my $index (0..@table-2){
-			given($_[0]){
+		given($_[0]){
+			for my $index (0..@table-2){
 				when($table[$index][regex_]){
-				$table[$index][count_]++;
+					$table[$index][count_]++;
 					$cache->{$_}=$table[$index] unless &{$table[$index][sub_]};	#call the dispatch
 					return;
-				}
-				default {
-
 				}
 			}
 
 
 		}
 		#if we make it here, we process the catch all
-		&{$table[$table->@*-1][sub_]};
+		$cache->{$_[0]}=$table[$#table] unless &{$table[$table->@*-1][sub_]};
+		#print Dumper $cache;
+
 	}
 		
 }
@@ -345,32 +361,43 @@ sub _buildDynamicCached{
 	
 	my $d="sub {\n";
 	#$d.='my ($dut)=@_;'."\n";
-	$d.='given($cache->{$_[0]}){
-		when(defined){
-			DEBUG and print "Hit cache in dynamic\n";
-			$_->[count_]++;		#update hit counter
-			$_[0] =~ $_->[regex_] if ref($_->[regex_]) eq "Regexp";	#only do regex if we have to
-			delete $cache->{$_[0]} if &{$_->[sub_]}; #delete if return is true
-			return;
-		}
-		default {
+	$d.='
+	given( $_[0]){
+		my $hit=$cache->{$_};
+		if(defined $hit){
+			when(!defined $hit->[regex_]){
+			#print "Hit cache in dynamic\n";
+			#	print Dumper $hit;
+				$hit->[count_]++;
+				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+				return;
+			}
+			when($hit->[regex_]){	#forces regex to execute and do capturing
+				#print "not default\n", Dumper $hit;
+				$hit->[count_]++;
+				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+				return;
+
+			}
 		}
 	}';
-	$d.=' given ($_[0]) {'."\n";
+			
+	$d.="\n".' given ($_[0]) {'."\n";
 
 
-	for (0..@table-1) {
+	for (0..@table-2) {
 		my $pre='$table['.$_.']';
 
 		$d.='when ('.$pre."[regex_]){\n";
 		$d.=$pre."[count_]++;\n";
 		$d.='$cache->{$_[0]}='."$pre unless &{$pre".'[sub_]};'."\n";
-		$d.="}\n";
+		$d.="return;\n}\n";
 	}
-	$d.="default {\n";
-	$d.='&{$table[$#table][sub_]};';
 	$d.="}\n";
-	$d.="}\n}\n";
+	$d.='$cache->{$_[0]}=$table[$#table] unless &{$table[$#table][sub_]};'."\n";
+	#$d.='print Dumper $cache;'."\n";
+	$d.="}\n";
+	#print $d."\n";
 	eval($d);
 }
 
