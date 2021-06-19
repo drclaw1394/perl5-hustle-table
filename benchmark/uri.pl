@@ -1,11 +1,13 @@
 use warnings;
 use strict;
-
+use feature "switch";
+no warnings "experimental";
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use Benchmark;
 use Data::Dumper;
 use feature "say";
+use POSIX;
 
 
 use Hustle::Table; 
@@ -14,14 +16,14 @@ my @hits;
 
 my @list=(
 
-        qr|^/another/regex(\d+)|oa=> sub {return},undef,undef,
-        qr|^/regex(\d+)|oa=> sub {},undef,undef,
-        "/exact"=>sub {return}, undef,undef,
+        [qr|^/another/regex(\d+)|oa=> sub {return},undef,undef],
+        [qr|^/regex(\d+)|oa=> sub {},undef,undef],
+        ["/exact"=>sub {return}, undef,undef],
 
-        "/another/exact"=>sub {}, undef,undef,
-        "/one/more/exact"=>sub {}, undef,undef,
-
-	undef,sub{},"default", undef,
+        ["/another/exact"=>sub {}, undef,undef],
+        ["/one/more/exact"=>sub {}, undef,undef],
+	{match=>qr/hello/, sub=>sub {},id=>"lkjasdf"},
+	[undef,sub{1},"defaulter", undef],
 );
 my @uri=qw(
         /another/regexX
@@ -32,74 +34,35 @@ my @uri=qw(
 	asd
 	);
 
-my @options=(
-	{type=>"loop",cache=>undef,reorder=>undef},
-        {type=>"loop",cache=>{},reorder=>undef},
-        {type=>"loopauto",cache=>undef,reorder=>undef},
-        {type=>"loopauto",cache=>{},reorder=>undef},
-        {type=>"dynamic",cache=>undef,reorder=>undef},
-        {type=>"dynamic",cache=>{},reorder=>undef},
-);
 
 
-my @dispatch;
-my @tables;
+my $table=Hustle::Table->new();
+$table->add(@list);
 
-for my $option (@options){
-	my $table=Hustle::Table->new();
-	push @tables, $table;	
-	$table->add(@list);
-	#$table->default( sub {});
-	push @dispatch, $table->build(%$option);
-
-}
 my $count=10000;
 use Math::Random;
 
 say "Building samples";
-my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_]=~ s/X+/int($_)/er} random_normal($count, @uri/2, 2);
+my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_]=~ s/X+/floor($_)/er} random_normal($count, @uri/2, 0);
 local $,=", ";
 #say @samples;
-#exit;
-print "NO reordering\n";
-for my $dispatch (@dispatch){
-	timethis 500, sub {
-		for my $sample (@samples){
-			#say $sample;
-			$dispatch->($sample);
-		}
-	};
-}
+my $cold=$table->prepare_dispatcher(type=>"online",cache=>{});
+timethis 500, sub {
+	for my $sample (@samples){
+		#say $sample;
+		$cold->($sample);
+	}
+};
+say "Cold table";
+say Dumper $table;
 
-@options=(
-        {type=>"loop",cache=>undef,reorder=>1},
-        {type=>"loop",cache=>{},reorder=>1},
-        {type=>"loopauto",cache=>undef,reorder=>1},
-        {type=>"loopauto",cache=>{},reorder=>1},
-	{type=>"dynamic",cache=>undef,reorder=>1},
-	{type=>"dynamic",cache=>{},reorder=>1},
-);
-print "YES reordering\n";
-@dispatch=();
-my $i=0;
-for my $option (@options){
-	my $table=$tables[$i];#Hustle::Table->new();
-	
-	push @dispatch, $table->build(%$option);
-	$i++;
+my $hot=$table->prepare_dispatcher(type=>"online",reset=>1, cache=>{}, reorder=>1);
+timethis 500, sub {
+	for my $sample (@samples){
+		#say $sample;
+		$hot->($sample);
+	}
+};
 
-}
-for my $dispatch (@dispatch){
-	timethis 500, sub {
-		for my $sample (@samples){
-			$dispatch->($sample);
-		}
-	};
-}
-
-
-
-
-
-
-
+say "Warm table";
+say Dumper $table;

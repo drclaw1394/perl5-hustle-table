@@ -7,22 +7,35 @@ Hustle::Table - Fast dynamic dispatching to subroutines
 
   use Hustle::Table;
 
-  #Create a new object and add entries
-  
+  #1. Create a new object
   my $table=Hustle::Table->new;
+
+  #2. Add entries which contain:
+  #	matcher:	required. The matcher  (ie regex, string, number) to test with
+  #	sub:		required. The sub to call when matcher is 'true' when testing input
+  #	label:		optional. For identification
+  #	count:		optional. Used as priority when adding (larger number=> higher priority)
+  #Can either be a array ref or hash ref
+
   $table->add(
-  	/regex match/		=>sub{ #dispatch vector},
-	"exact string match"	=> sub {}
-	123 			, sub {#non string match}
+  	{match=>qr/regex match/, sub=>sub{ #dispatch vector}}, 	#entry as a hash ref
+	[qr/another/,sub{},"my label",10],			#entry as array ref
+	[undef,sub {},"default",undef]				#undef matcher is default match all
   );
 
-  #Build the dispatcher
-  my $dispatch=$table->build(type=>"dynamic"); # or loop, loop_cached, dynamic_cached
+  #3. Prepare a dispatcher:
+  # 	A dispatcher is sub reference, which is called directly with in put to match
+  #     Different types, caching and other processing options.
+
+  my $dispatch=$table->prepare_dispatcher(type=>"dynamic"); # or loop, loop_cached, dynamic_cached
 
 
-  #Dispatch
-  $dispatch->("thing to match");	# any number of arguments passsed to sub
+  #4. Dispatch from input
+  $dispatch->("thing to match","optional", "arguemnts");	# any number of arguments passsed to sub
 
+
+  #Training is also possible please see below
+  
 
 =head1 DESCRIPTION
 
