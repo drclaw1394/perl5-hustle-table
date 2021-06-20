@@ -15,7 +15,7 @@ my @list=map {[$_,sub {},undef,undef]} @$matchers;
 
 my $table=Hustle::Table->new();
 $table->add(@list);
-
+$table->set_default(sub {1});
 
 
 my $cold=$table->prepare_dispatcher(type=>"online",cache=>undef);
@@ -28,7 +28,7 @@ timethis 200, sub {
 say "Cold table";
 say Dumper $table;
 
-my $hot=$table->prepare_dispatcher(type=>"online",reset=>1, cache=>{}, reorder=>undef);
+my $hot=$table->prepare_dispatcher(type=>"online",reset=>1, cache=>{}, reorder=>1);
 timethis 200, sub {
 	for my $sample (@$samples){
 		#say $sample;

@@ -41,7 +41,7 @@ our @EXPORT = qw(
 #
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [[undef,sub {1;},"default",0]],$class;	#Prefill with default handler
+	bless [[undef,sub {1},"default",0]],$class;	#Prefill with default handler
 }
 
 #Add and sort accorind to count/priority
@@ -86,8 +86,7 @@ sub add {
 
 
 #overwrites the default handler. if no
-sub default {
-	state $id=0;
+sub set_default {
 	my ($self,$sub)=@_;
 	my $entry=[undef,$sub,"default",0];
 	$self->[@$self-1]=$entry;
@@ -192,7 +191,8 @@ sub _prepare_online {
                 $d.="}\n";
         }
         $d.="default {\n";
-        $d.='&{$table[$#table][sub_]};';
+        $d.='&{$table[$#table][sub_]};'."\n";
+        $d.='$table[$#table][count_]++;'."\n";
         $d.="}\n";
         $d.="}\n}\n";
         #print $d;
@@ -215,16 +215,19 @@ sub _prepare_online_cached {
 	given( $_[0]){
 		my $hit=$cache->{$_};
 		if(defined $hit){
-			when(!defined $hit->[match_]){	#default case, test for defined
-				$hit->[count_]++;
-				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
-				return;
-			}
-			when($hit->[match_]){		#normal case, acutally executes potental regex
+			#normal case, acutally executes potental regex
+			when($hit->[match_]){
 				$hit->[count_]++;
 				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
 				return;
 
+			}
+			#if the first case does ot match, its because the cached entry is the default (undef matcher)
+			#when(!defined $hit->[match_]){	#default case, test for defined
+			default{
+				$hit->[count_]++;
+				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+				return;
 			}
 		}
 	}';
@@ -242,6 +245,7 @@ sub _prepare_online_cached {
 	}
 	$d.="}\n";
 	$d.='$cache->{$_[0]}=$table[$#table] unless &{$table[$#table][sub_]};'."\n";
+        $d.='$table[$#table][count_]++;'."\n";
 	#$d.='print Dumper $cache;'."\n";
 	$d.="}\n";
 	#print $d."\n";
