@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.0.1");
+use version; our $VERSION=version->declare("v0.1");
 
 use strict;
 use warnings;
@@ -31,17 +31,12 @@ our @EXPORT = qw(
 );
 
 #TODO:
-# Pass arguments from dispatch call (use &sub to save realiasing the stack)
-# 	The ref to the table if the first argument
-#
-# Allow multiple entries to be added at once
-# Implement an update method to alter the vector for existing entry (ie sort order remains)
+# It's assumed that all matchers take the same amount of time to match. Clearly
+# a regex will take more time than a short exact string. A more optimal ording might
+# be achieved if this was measured and incorperated into the ordering.
 #
 
 
-# Preloaded methods go here.
-#
-#
 #Public API
 #
 sub new {
@@ -73,6 +68,7 @@ sub add {
 		}
 		$entry->[label_]=$id++ unless defined $entry->[label_];
 		$entry->[count_]= 0 unless defined $entry->[count_];
+		croak "target is not a sub refernce" unless ref $entry->[sub_] eq "CODE";
 		#Append the item to the of the list (minus defaut)
 		if(defined $entry->[match_]){
 			splice @$self, @$self-1,0, $entry;

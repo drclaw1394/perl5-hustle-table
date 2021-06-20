@@ -46,7 +46,7 @@ say "Building samples";
 my @samples=map {$_=0 if $_<0; $_=$#uri if $_> $#uri; $uri[$_]=~ s/X+/floor($_)/er} random_normal($count, @uri/2, 0);
 local $,=", ";
 #say @samples;
-my $cold=$table->prepare_dispatcher(type=>"online",cache=>{});
+my $cold=$table->prepare_dispatcher(type=>"online",cache=>undef);
 timethis 500, sub {
 	for my $sample (@samples){
 		#say $sample;

@@ -27,7 +27,7 @@ Hustle::Table - Fast dynamic dispatching to subroutines
   # 	A dispatcher is sub reference, which is called directly with in put to match
   #     Different types, caching and other processing options.
 
-  my $dispatch=$table->prepare_dispatcher(type=>"dynamic"); # or loop, loop_cached, dynamic_cached
+  my $dispatch=$table->prepare_dispatcher(type=>"online", cache=>{}, reorder=>1); # or loop, loop_cached, dynamic_cached
 
 
   #4. Dispatch from input
@@ -63,28 +63,59 @@ No exports. Please use the object interface.
 
 =head2 How it works
 
-The table is essentially a list of entries, each containing:
+The table is essentially a list of at least one entry. Any consists of:
 
 =over
 
-=item matcher
+=item match
 
 	regular expression, string, number
 
-=item target
+=item sub
 
 	target subroutine to call when the regex matches
 
-=item id
+=item label
 
-	id to help track this entry
+	label to help the user track this entry
 
 =item count
 
 	running total on how many times an entry has been dispatched successfully
+	or also a prioity level
 
 =back
 
+
+
+=head2 Adding Entries
+
+More entrys are added by the user, in either hash ref or array ref format, using the C<add> method.
+Array entries must contain four elements, in the order of:
+	
+	[$matcher,$sub,$label,$count]
+	{matcher=>$matcher, sub=>$sub, label=>$label, count=>$count}
+
+C<$sub> is the only item that must be defined and must be a CODE reference
+
+C<$matcher> can be anything that smartmatching can handle. However the focus on this module is on strings
+and regular expressions
+
+	"match exaclty this stirng"
+	qr|match and capture (this|that)|
+
+When C<$matcher> is a regex, any capturing is accessable in the target sub.
+
+C<$label> is a user defined item to allows identification of the entry. This is useful for saving/loading from configuration files etc.
+
+C<$count> This is a dual purpose attributes. When adding entries to the list, it is used as a priority. Higher numeric values are a higher priority. The list is sorted in decenting order of priority, meaning the highest priority is the first element in the list.
+
+During running of the dispatch, this is a tally recording how many times,the entry has been matched. This information can be then used to as a priority later and the list reorded.
+
+
+
+
+The last element in the list (which is always present) is the default/ or catch all  matcher.
 
 The list always has one entry which is the fallback or default which is called when no other entries match.
 
