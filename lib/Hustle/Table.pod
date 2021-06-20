@@ -18,7 +18,7 @@ Hustle::Table - Fast dynamic dispatching to subroutines
   #Can either be a array ref or hash ref
 
   $table->add(
-  	{match=>qr/regex match/, sub=>sub{ #dispatch vector}}, 	#entry as a hash ref
+  	{match=>qr/regex (match)/, sub=>sub{ #can access regex capture }}, #entry as a hash ref
 	[qr/another/,sub{},"my label",10],			#entry as array ref
 	[undef,sub {},"default",undef]				#undef matcher is default match all
   );
@@ -37,15 +37,20 @@ Hustle::Table - Fast dynamic dispatching to subroutines
   #Training is also possible please see below
   
 
-=head1 DESCRIPTION
+=head1 Description
 
-This module provides small class to construct a dispatch table and build a dispatcher subroutine for it. Multiple dispatchers types to choose from give the user tunable behaviour.
+This module provides a small class to construct a dispatch table and build a dispatcher for it. All interactions are done via the object/class methods so no exports are defined.
 
+It supports straightforard optimisation of the dispatch table and also utilises a optional cache to squeeze even more performance out.
+
+Notable features include:
 
  
 =over 
 
-=item Uses buildin perl features  (regex, smartmatch)
+=item Uses buildin perl features  (regex, given/when, smartmatch)
+
+=item Captures in regex avaiable in dispatched subs
 
 =item Cached prematching (optional)
 
@@ -55,48 +60,46 @@ This module provides small class to construct a dispatch table and build a dispa
 
 =back
 
-=head2 EXPORT
-
-No exports. Please use the object interface.
-
-
 
 =head2 How it works
 
-The table is essentially a list of at least one entry. Any consists of:
+The dispatch table is essentially a list of at least one entry which maps a matcher to a subroutine to call when the matcher successfully matches the input.
 
-=over
-
-=item match
-
-	regular expression, string, number
-
-=item sub
-
-	target subroutine to call when the regex matches
-
-=item label
-
-	label to help the user track this entry
-
-=item count
-
-	running total on how many times an entry has been dispatched successfully
-	or also a prioity level
-
-=back
+Conceptually the list looped over, applying the matcher to the input until a match is found. In the case no match being found, a default catch all sub is called.
+ 
+In practice it isn't a loop but generated code in a possibly optimised order that processes the list.
 
 
 
-=head2 Adding Entries
+=head1 Adding Entries
 
-More entrys are added by the user, in either hash ref or array ref format, using the C<add> method.
+Entrys are added in either annonamous hash or array format, using the C<add> method.
 Array entries must contain four elements, in the order of:
 	
 	[$matcher,$sub,$label,$count]
+
+and hashes only need to specifiy the matcher and sub pairs
+
 	{matcher=>$matcher, sub=>$sub, label=>$label, count=>$count}
 
-C<$sub> is the only item that must be defined and must be a CODE reference
+In either case, C<$sub> is the only field/item that must be defined. It must also be a CODE reference.
+
+=head1 Caching and Cache control
+
+A hash lookup is much quicker than repeated conditional testing and a simple hash cache is used to prevent repeated matching of previously seen input.
+
+If the the same input is presented again, it is found in the hash, and not through 'searching' the table. If found, the input is then subject to the same matcher to ensure any regex grouping gets applied.
+
+The return code of the dispatched sub is important. It is used to indicate if key should be removed from the cache. Any 'true' value returned will means the input, as a key to the cache, is to be removed from the cache. Any 'false' value indicates the input is to remain in the cache or be added if it doesn't exist.
+
+
+
+
+=head1 Entry structure
+
+=over 
+
+=item matcher
 
 C<$matcher> can be anything that smartmatching can handle. However the focus on this module is on strings
 and regular expressions
@@ -104,35 +107,47 @@ and regular expressions
 	"match exaclty this stirng"
 	qr|match and capture (this|that)|
 
-When C<$matcher> is a regex, any capturing is accessable in the target sub.
+When C<$matcher> is a regex, any capturing is accessable in the target C<sub>.
 
-C<$label> is a user defined item to allows identification of the entry. This is useful for saving/loading from configuration files etc.
+=item sub
+
+The C<$sub> has access to any capture groups used in the matcher (if applicable). It is also passed all arguments, including the input, unmodified that where used to call the dispatcher sub.
+
+ie
+	$dispatcher->("my input","optional", "arguments","to", "dispatched", "sub");
+
+The return value of the sub indicates if the input just matched is to be reomved from the cache. 
+
+=item label
+
+C<$label> is a user defined item to allow identification of the entry. This is useful for saving/loading from configuration files etc.
+
+=item count
 
 C<$count> This is a dual purpose attributes. When adding entries to the list, it is used as a priority. Higher numeric values are a higher priority. The list is sorted in decenting order of priority, meaning the highest priority is the first element in the list.
 
 During running of the dispatch, this is a tally recording how many times,the entry has been matched. This information can be then used to as a priority later and the list reorded.
 
+=back
 
+=head2 The Default matcher
 
+Each list has a default matcher that will unconditionally match the input. This entry is specified by using 'undef' as the matcher when adding an entry. When set this way only the array format can be used.
 
-The last element in the list (which is always present) is the default/ or catch all  matcher.
+To make it more explicit, the it can also be changed via the C<set_default> method. 
 
-The list always has one entry which is the fallback or default which is called when no other entries match.
-
-
-Once the a table is created entries are added as an even numbered list of matcher=> sub pairs.
-
-	my $table=Hustle::Table->new;
-
-	$table->add(qr/Hello/, sub { say "There"; return;});
-
-
-
-
+The default subroutine of the 'default' entry does nothing.
 
 =head1 Performance
 
 The concept is to perform less searching to find the dispatch vector. However the type of input does play an important role in determining the best way perform the search.
+
+For example a uniformly distributed input will not gain benefits from reording the entries in the list.
+
+On the other hand when the distributing becomes 'centred', the reording of the table can greatly improve the search time.
+
+My simple benchmarking script shows around 1M dispatches/s for non cached and almost 2M dispatches/s for cached
+
 
 =over
 
@@ -149,28 +164,23 @@ Caching can have a detrimental effect as it take cpu time to consult the cache
 
 
 
-=head1 SEE ALSO
+=head1 Comparison to other modules
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
+There a couple of other dispatching modules on CPAN.
+Notably L<Smart::Dispatch> has a nice syntax and the ability to return values instead of just executing subOther than also using the 'smartmatching' of a C<given> block, to perform the matching, it has a much difference approach to manipulating a dispatch table. It seems to have much flexibility compared to this module.
 
-If you have a mailing list set up for your module, mention it here.
+Speed of matching and dispatching together with the ability to use capturing in your regular expressing matchers is where Hustle::Table shows strength
 
-If you have a web site set up for your module, mention it here.
+
 
 =head1 AUTHOR
 
-Ruben Westerberg, E<lt>drclaw@sd.apple.comE<gt>
+Ruben Westerberg, E<lt>drclaw@mac.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2021 by Ruben Westerberg
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.28.2 or,
-at your option, any later version of Perl 5 you may have available.
-
+MIT Licensed
 
 =cut
