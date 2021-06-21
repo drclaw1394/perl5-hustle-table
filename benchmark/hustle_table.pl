@@ -15,7 +15,7 @@ my @list=map {[$_,sub {},undef,undef]} @$matchers;
 
 my $table=Hustle::Table->new();
 $table->add(@list);
-$table->set_default(sub {1});
+$table->set_default(sub {});
 
 
 my $cold=$table->prepare_dispatcher(type=>"online",cache=>undef);

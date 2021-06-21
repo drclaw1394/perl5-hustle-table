@@ -3,19 +3,21 @@ use version; our $VERSION=version->declare("v0.1");
 
 use strict;
 use warnings;
-use Carp qw<carp croak>;
-use Data::Dumper;
+
 use feature "refaliasing";
 no warnings "experimental";
 use feature "switch";
 use feature "state";
+
+use Carp qw<carp croak>;
+
 
 use constant DEBUG=>0;
 require Exporter;
 #use AutoLoader qw(AUTOLOAD);
 
 #constants for entry feilds
-use enum (qw<match_ sub_ label_ count_>);
+use enum (qw<matcher_ sub_ label_ count_>);
 use enum(qw<LOOP CACHED_LOOP DYNAMIC CACHED_DYNAMIC>);
 
 our @ISA = qw(Exporter);
@@ -49,6 +51,7 @@ sub add {
 	my ($self,@list)=@_;
 	my $entry;
 	state $id=0;
+	my @ids;
 	for my $item (@list){
 		given(ref $item){
 			when("ARRAY"){
@@ -57,9 +60,7 @@ sub add {
 				croak "Odd number of test=>dispatch vectors" unless $entry->@* == 4;
 			}
 			when("HASH"){
-				$entry=[$item->@{qw<match sub id count>}];
-
-				#print Dumper $entry;
+				$entry=[$item->@{qw<matcher sub label count>}];
 			}
 			default {
 				croak "Unkown data format";
@@ -70,8 +71,9 @@ sub add {
 		$entry->[count_]= 0 unless defined $entry->[count_];
 		croak "target is not a sub refernce" unless ref $entry->[sub_] eq "CODE";
 		#Append the item to the of the list (minus defaut)
-		if(defined $entry->[match_]){
+		if(defined $entry->[matcher_]){
 			splice @$self, @$self-1,0, $entry;
+			push @ids,$entry->[label_];
 		}
 		else {
 			$self->[$self->@*-1]=$entry;
@@ -81,7 +83,10 @@ sub add {
 
 	#Reorder according to count/priority
 	$self->_reorder;
-	return;
+	if(wantarray){
+		return @ids;
+	}
+	return scalar @ids;
 }
 
 
@@ -109,7 +114,6 @@ sub reset_counters {
 }
 
 sub _prepare_offline {
-	print  "prepare_trainer\n";
 	my ($table)=@_;	#self
 	$table->reset_counters;
 	sub {
@@ -117,7 +121,7 @@ sub _prepare_offline {
 		\my @table=$table;
 		for my $index (0..@table-2){	#do not process the last element
 			given($_[0]){
-				when($table[$index][match_]){
+				when($table[$index][matcher_]){
 					$table[$index][count_]++;
 					#&{$table[$index][sub_]}; #training ... no dispatching
 					if($table[$index][count_]>$table[$index-1][count_]){
@@ -140,10 +144,12 @@ sub _prepare_offline {
 sub prepare_dispatcher{
 	my $self=shift;
 	my %options=@_;
-	$options{type}//="loop";
+
+	$options{type}//="online";
+	$options{reorder}//=1;
+	$options{reset}//=undef;
 
 	if(defined $options{reorder} and $options{reorder}){
-			
 		$self->_reorder;
 	}
 
@@ -177,7 +183,6 @@ sub _reorder{
 
 
 sub _prepare_online {
-        print  "online\n";
         \my @table=shift; #self
         my $d="sub {\n";
         #$d.='my ($dut)=@_;'."\n";
@@ -185,7 +190,7 @@ sub _prepare_online {
         for (0..@table-2) {
                 my $pre='$table['.$_.']';
 
-                $d.='when ('.$pre."[match_]){\n";
+                $d.='when ('.$pre."[matcher_]){\n";
                 $d.=$pre."[count_]++;\n";
                 $d.='&{'.$pre.'[sub_]};'."\n";
                 $d.="}\n";
@@ -195,12 +200,9 @@ sub _prepare_online {
         $d.='$table[$#table][count_]++;'."\n";
         $d.="}\n";
         $d.="}\n}\n";
-        #print $d;
         eval($d);
 }
 sub _prepare_online_cached {
-	#sub _buildDynamicCached{
-	print  "online_cached\n";
 	\my @table=shift; #self
 	my $cache=shift;
 	if(ref $cache ne "HASH"){
@@ -216,14 +218,14 @@ sub _prepare_online_cached {
 		my $hit=$cache->{$_};
 		if(defined $hit){
 			#normal case, acutally executes potental regex
-			when($hit->[match_]){
+			when($hit->[matcher_]){
 				$hit->[count_]++;
 				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
 				return;
 
 			}
 			#if the first case does ot match, its because the cached entry is the default (undef matcher)
-			#when(!defined $hit->[match_]){	#default case, test for defined
+			#when(!defined $hit->[matcher_]){	#default case, test for defined
 			default{
 				$hit->[count_]++;
 				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
@@ -238,7 +240,7 @@ sub _prepare_online_cached {
 	for (0..@table-2) {
 		my $pre='$table['.$_.']';
 
-		$d.='when ('.$pre."[match_]){\n";
+		$d.='when ('.$pre."[matcher_]){\n";
 		$d.=$pre."[count_]++;\n";
 		$d.='$cache->{$_[0]}='."$pre unless &{$pre".'[sub_]};'."\n";
 		$d.="return;\n}\n";
@@ -246,9 +248,7 @@ sub _prepare_online_cached {
 	$d.="}\n";
 	$d.='$cache->{$_[0]}=$table[$#table] unless &{$table[$#table][sub_]};'."\n";
         $d.='$table[$#table][count_]++;'."\n";
-	#$d.='print Dumper $cache;'."\n";
 	$d.="}\n";
-	#print $d."\n";
 	eval($d);
 }
 

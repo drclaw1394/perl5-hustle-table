@@ -1,6 +1,11 @@
+benchmark/data.pl
+benchmark/hustle_table.pl
+benchmark/smart_dispatch.pl
 Changes
+Hustle-Table-v0.1.tar.gz
+lib/Hustle/Table.pm
+lib/Hustle/Table.pod
 Makefile.PL
-MANIFEST
+MANIFEST			This list of files
 README
-t/Regex-Dispatcher.t
-lib/Regex/Dispatcher.pm
+t/Hustle-Table.t
