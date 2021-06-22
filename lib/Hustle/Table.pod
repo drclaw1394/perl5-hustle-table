@@ -21,7 +21,7 @@ Hustle::Table - Fast dynamic dispatching to subroutines
   	#entry as a hash ref
   	{ matcher => qr/regex (match)/, sub => sub{ #can access regex capture }}, 
 
-	#entry as array ref, with lable and priority values set
+	#entry as array ref, with label and priority values set
 	[qr/another/, sub{}, "my label", 10],			
 	
 	#undef matcher is default match all. Must be array ref format
@@ -31,15 +31,15 @@ Hustle::Table - Fast dynamic dispatching to subroutines
   #3. Prepare a dispatcher:
   # A dispatcher is sub reference, which is called directly with input to match
 
-  my $dispatch=$table->prepare_dispatcher(
-	type=>"online",		#either "online" (default="online") or "offline" 
-	cache=>{},		#the hash to use as a cache
-	reorder=>1,		#reorder (default=1) table before building dispatcher	
-	reset=>0		#Reset (default=undef) entry counts
+  my $dispatch = $table->prepare_dispatcher(
+	type => "online",		#either "online" (default="online") or "offline" 
+	cache => {},		#the hash to use as a cache
+	reorder => 1,		#reorder (default=1) table before building dispatcher	
+	reset => 0		#Reset (default=undef) entry counts
  );
 
 
-  #4. Dispatch from input
+  #4. Dispatch input
   $dispatch->("thing to match","optional", "arguments");	# any number of arguments passsed to sub
 
 
@@ -60,32 +60,50 @@ Notable features include:
  
 =over 
 
-=item Uses buildin perl features  (regex, given/when, smartmatch)
+=item *
 
-=item Captures in regex are avaiable in dispatched subs
+Non exact (regexp) and exact (string) matching in the same table
 
-=item Argumens supplied to dispatcher are availble to executed vector
+=item *
 
-=item Cached prematching (optional)
+Uses built-in Perl features  (regex, given/when, smart-match)
 
-=item Basic hit count and optimising (optional)
+=item *
 
-=item Fall through/catch all matching
+Captures in regex are available in dispatched subs
+
+=item *
+
+Arguments supplied to dispatcher are available to executed vector
+
+=item *
+
+Cached pre-matching (optional)
+
+=item *
+
+Basic hit count and optimising (optional)
+
+=item *
+
+Fall through/catch all matching
 
 =back
 
 
 The dispatch table is essentially a list of at least one entry which maps a
-matcher to a subroutine to call on successfully matches the input.
+matcher to a subroutine to call on a successfully match of the input.
 
-Conceptually the list is looped over, applying the matcher to the input until a
+Conceptually the list is looped over, applying the matchers sequentially to the input until a
 match is found. In practice it isn't a loop, but generated code reference with 
 optimised ordering of the entries.
 
 In the case of no successful match, a default catch all dispatch vector is called.
  
-Matching performance is optionally boosted by using a hash as a cache. Hash lookup is
-much quicker than repeated conditional testing. 
+Matching performance is optionally boosted by using a hash as a cache. Hash
+lookup is much quicker than repeated conditional testing. Controlling which
+inputs are removed from the cached is dictated by the return value of the
+dispatch vector/sub
 
 =head1 CREATING A TABLE
 
@@ -99,9 +117,55 @@ The table is a blessed array reference and can be manipulated as such. It's not
 recommended to access the table directly other than dumping the contents to
 storage.
 
-=head1 ENTRIES
+=head1 ENTRIES MANAGEMENT
 
-=head2 ADDING ENTRIES
+=head2 STRUCTURE
+
+An entry contains the following fields
+
+=over 
+
+=item matcher
+
+C<matcher> can be anything that smart-matching can handle. However the focus on
+this module is on strings and regular expressions
+
+ "match exaclty this stirng"
+ qr|match and capture (this|that)|
+
+When C<matcher> is a regex, any capturing is accessible in the target C<sub>.
+
+=item sub
+
+The C<sub> has access to any capture groups used in the matcher (if
+applicable). It is also passed all arguments, including the input, unmodified,
+used to call the dispatcher.
+
+ $dispatcher->("my input","optional", "arguments", "to", "dispatched", "sub");
+
+The return value of the sub indicates if the input just matched is to be
+removed from the cache. 
+
+=item label
+
+C<label> is a user defined item to allow identification of the entry. This is
+useful for saving/loading from configuration files etc.
+
+=item count
+
+C<count> This is a dual purpose attributes. When adding entries to the list,
+it is used as a priority. Higher numeric values are a higher priority. The list
+is sorted in descending order of priority, meaning the highest priority is the
+first element in the list.
+
+During running of the dispatch, this is a tally recording how many times,the
+entry has been matched. This information can be then used as a priority
+later to reorder the list.
+
+=back
+
+
+=head2 ADDING
 
 Entries are added in either anonymous hash or array format, using the C<add>
 method.  Array entries must contain four elements, in the order of:
@@ -123,7 +187,7 @@ Note the auto generated labels are only unique in the lifetime of a single
 table. If permanent/globally unique labels are need, the user will need to
 generate them.
 
-=head2 REMOVING ENTRIES
+=head2 REMOVING
 
 Removal of entries is via the C<remove> method. It takes a list of labels to remove
 
@@ -131,7 +195,7 @@ Removal of entries is via the C<remove> method. It takes a list of labels to rem
 
 It returns a list of all entries removed.
 
-=head2 DUMPING ENTRIES
+=head2 DUMPING 
 
 The table contents be accessed can like a normal array reference
 
@@ -140,49 +204,6 @@ The table contents be accessed can like a normal array reference
 
 It is not recommended to manipulate the entires directly
 
-
-=head2 ENTRY STRUCTURE
-
-=over 
-
-=item matcher
-
-C<$matcher> can be anything that smart-matching can handle. However the focus on
-this module is on strings and regular expressions
-
- "match exaclty this stirng"
- qr|match and capture (this|that)|
-
-When C<$matcher> is a regex, any capturing is accessible in the target C<sub>.
-
-=item sub
-
-The C<$sub> has access to any capture groups used in the matcher (if
-applicable). It is also passed all arguments, including the input, unmodified,
-used to call the dispatcher.
-
- $dispatcher->("my input","optional", "arguments", "to", "dispatched", "sub");
-
-The return value of the sub indicates if the input just matched is to be
-removed from the cache. 
-
-=item label
-
-C<$label> is a user defined item to allow identification of the entry. This is
-useful for saving/loading from configuration files etc.
-
-=item count
-
-C<$count> This is a dual purpose attributes. When adding entries to the list,
-it is used as a priority. Higher numeric values are a higher priority. The list
-is sorted in descending order of priority, meaning the highest priority is the
-first element in the list.
-
-During running of the dispatch, this is a tally recording how many times,the
-entry has been matched. This information can be then used as a priority
-later to reorder the list.
-
-=back
 
 =head2 THE DEFAULT MATCHER
 
@@ -248,9 +269,9 @@ removed from the cache.
 Any 'false' value indicates the input is to remain in the cache or be added if
 it doesn't exist.
 
-	{matcher=>/regex/, sub { return }};	#Not removed from cache
-	{matcher=>/regex/, sub { return 1}};	#Removed from cache
-	{matcher=>/regex/, sub { say $1;}};	#Removed from cache. say returns 'true'
+	{matcher => qr/r(.)gexp/, sub => sub { return }};	#Returns undef so not removed from cache.
+	{matcher => qr/re(.)gxp/, sub => sub { return 1}};	#Returns 'true' so removed from cache
+	{matcher => qr/reg(.)xp/, sub => sub { say $1;}};	#Returns true. Last statement is say and returns 1 
 
 
 =head2 OPTIMISATION
@@ -291,11 +312,17 @@ Please report via github
 
 =over
 
-=item Override array STORE and FETCH interface to ensure default is preserved
+=item *
 
-=item Add a more concrete performance discussion
+Override array STORE and FETCH interface to ensure default is preserved
 
-=item Demonstrate how to run offline dispatcher for optimising
+=item *
+
+Add a more concrete performance discussion
+
+=item *
+
+Document how to run offline dispatcher for optimising
 
 =back
 

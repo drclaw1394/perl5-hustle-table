@@ -1,6 +1,13 @@
-Revision history for Perl extension Regex::Dispatcher.
+Revision history for Perl extension Hustle::Table
 
-0.01  Tue 22 Jun 2021 13:13:05 AEST
+0.02	Tue 22 Jun 2021 21:32:35 AEST
+	- Spelling correction
+	- Documentation formating and fixes
+	- Removal of unused exporting code
+	- Adding missing dependencies on enum in Makefile.PL
+	- Added MYMETA to distribution
+
+0.01 	Tue 22 Jun 2021 13:13:05 AEST
 	- First release almost ready for CPAN
 
 

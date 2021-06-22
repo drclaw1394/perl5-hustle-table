@@ -9,9 +9,11 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
 	NAME => 'Hustle::Table',
 	ABSTRACT_FROM => 'lib/Hustle/Table.pod', 
-	VERSION_FROM => 'lib/Hustle/Table.pm', # finds $VERSION, requires EU::MM from perl >= 5.5
+	VERSION_FROM => 'lib/Hustle/Table.pm',
 	MIN_PERL_VERSION => '5.22.0',		#for switch and ref aliasing
-	PREREQ_PM => {}, # e.g., Module::Name => 1.1
+	PREREQ_PM => {
+		enum=>0
+	},
 	AUTHOR => 'Ruben Westerberg <drclaw@mac.com>',
 	LICENSE => 'mit',
 	TEST_REQUIRES => { "Test::More" => 0},

@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.1");
+use version; our $VERSION=version->declare("v0.2");
 
 use strict;
 use warnings;
@@ -13,24 +13,10 @@ use Carp qw<carp croak>;
 
 
 use constant DEBUG=>0;
-require Exporter;
-#use AutoLoader qw(AUTOLOAD);
 
 #constants for entry feilds
 use enum (qw<matcher_ sub_ label_ count_>);
 use enum(qw<LOOP CACHED_LOOP DYNAMIC CACHED_DYNAMIC>);
-
-our @ISA = qw(Exporter);
-
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	
-);
 
 #TODO:
 # It's assumed that all matchers take the same amount of time to match. Clearly
