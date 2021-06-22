@@ -1,4 +1,4 @@
-#Hustle-Table version 0.01
+# Hustle-Table version 0.01
 
 Perl string/regexp dispatcher with dynamic code generation and optimising
 search order.
@@ -6,7 +6,7 @@ search order.
 
 Please see the POD documentation for more details
 
-##INSTALLATION
+## INSTALLATION
 
 Easyist way to install is via cpan
 
@@ -22,14 +22,14 @@ To install this module type the following:
 
 	perl Makefile.PL make make test make install
 
-##DEPENDENCIES
+## DEPENDENCIES
 
 There are no direct dependances to use this module. For running benchmarks
 additional modules are required. Please consult the benchmark files.
 
 
 
-##COPYRIGHT AND LICENCE
+## COPYRIGHT AND LICENCE
 
 Put the correct copyright and licence information here.
 
