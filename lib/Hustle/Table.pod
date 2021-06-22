@@ -87,9 +87,21 @@ In the case of no successful match, a default catch all dispatch vector is calle
 Matching performance is optionally boosted by using a hash as a cache. Hash lookup is
 much quicker than repeated conditional testing. 
 
+=head1 CREATING A TABLE
 
+Simply calling the class constructor returns a new Table. There are no arguments to the constructor.
 
-=head1 ADDING ENTRIES
+	my $table=Hustle::Table->new;
+
+A default catch all entry (an empty sub) is added automatically
+
+The table is a blessed array reference and can be manipulated as such. It's not
+recommended to access the table directly other than dumping the contents to
+storage.
+
+=head1 ENTRIES
+
+=head2 ADDING ENTRIES
 
 Entries are added in either anonymous hash or array format, using the C<add>
 method.  Array entries must contain four elements, in the order of:
@@ -101,7 +113,33 @@ Hashes only need to specify the matcher and sub pairs
 	{matcher=>$matcher, sub=>$sub, label=>$label, count=>$count}
 
 In either case, C<$sub> is the only field/item that must be defined. It must
-also be a CODE reference.
+also be a CODE reference. 
+
+If a label is not specified, one will be generated automatically. All the
+labels used in a call to C<add> are returned in the same order as the input
+arguments.
+
+Note the auto generated labels are only unique in the lifetime of a single
+table. If permanent/globally unique labels are need, the user will need to
+generate them.
+
+=head2 REMOVING ENTRIES
+
+Removal of entries is via the C<remove> method. It takes a list of labels to remove
+
+	$table->remove("label1", "funky-name");
+
+It returns a list of all entries removed.
+
+=head2 DUMPING ENTRIES
+
+The table contents be accessed can like a normal array reference
+
+	$table->@*;
+	@$table;
+
+It is not recommended to manipulate the entires directly
+
 
 =head2 ENTRY STRUCTURE
 
@@ -232,8 +270,6 @@ string) shows around 1.2M dispatches/s for non cached and over 2M dispatches/s
 for cached dispatcher. Your results may vary.
 
 
-TODO: add more concrete performance discussion
-TODO: Demonstrate how to run offline dispatcher for optimising
 
 
 =head1 COMPARISON TO OTHER MODULES
@@ -251,6 +287,17 @@ Probably.
 
 Please report via github
 
+=head1 TODO
+
+=over
+
+=item Override array STORE and FETCH interface to ensure default is preserved
+
+=item Add a more concrete performance discussion
+
+=item Demonstrate how to run offline dispatcher for optimising
+
+=back
 
 =head1 AUTHOR
 

@@ -97,14 +97,24 @@ sub set_default {
 	$self->[@$self-1]=$entry;
 }
 
+#TODO:
+# handle removal of default better
 sub remove {
-	my ($self,$id) =@_;
-	for(0..@$self-1){
-		if($self->[$_][label_]==$id){
-			return splice @$self, $_,1;
+	my ($self,@labels) =@_;
+
+	my @removed;
+	OUTER:
+	for my $label (@labels){
+		for(0..@$self-2){
+			if($self->[$_][label_] eq $label){
+				push @removed, splice @$self, $_,1;
+				next OUTER;
+			}
 		}
 	}
+	return @removed;
 }
+
 
 sub reset_counters {
 	\my @t=shift; #self
@@ -113,6 +123,7 @@ sub reset_counters {
 	}
 }
 
+#TODO: write offline test
 sub _prepare_offline {
 	my ($table)=@_;	#self
 	$table->reset_counters;
@@ -175,9 +186,9 @@ sub prepare_dispatcher{
 #
 sub _reorder{
 	\my @self=shift;	#let sort work inplace
-	my $default=pop @self;
+	my $default=pop @self;	#prevent default from being sorted
 	@self=sort {$b->[count_] <=> $a->[count_]} @self;
-	push @self, $default;
+	push @self, $default;	#restor default
 	1;
 }
 
