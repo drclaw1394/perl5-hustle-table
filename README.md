@@ -1,4 +1,4 @@
-# Hustle-Table version 0.01
+# Hustle-Table
 
 Perl string/regexp dispatcher with dynamic code generation and optimising
 search order.
