@@ -29,20 +29,9 @@ timethis 200, sub {
 say "Cold table";
 say Dumper $table;
 
-my $goto=$table->prepare_dispatcher(type=>"goto",cache=>undef,reset=>1,reorder=>0);
-timethis 200, sub {
-	for my $sample (@$samples){
-		#say $sample;
-		$goto->($sample);
-	}
-};
-
-say "GOTO table";
-say Dumper $table;
-exit;
 
 
-my $hot=$table->prepare_dispatcher(type=>"online",reset=>1, cache=>{}, reorder=>1);
+my $hot=$table->prepare_dispatcher(type=>"online",reset=>1, cache=>undef, reorder=>1);
 timethis 200, sub {
 	for my $sample (@$samples){
 		#say $sample;
