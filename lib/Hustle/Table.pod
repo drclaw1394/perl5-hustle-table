@@ -1,7 +1,7 @@
-
+ok 
 =head1 NAME
 
-Hustle::Table - Fast dynamic dispatching to subroutines
+Hustle::Table - Pattern dispatching to subroutines
 
 =head1 SYNOPSIS
 
@@ -167,17 +167,31 @@ later to reorder the list.
 
 =head2 ADDING
 
-Entries are added in either anonymous hash or array format, using the C<add>
-method.  Array entries must contain four elements, in the order of:
+Entries are added in anonymous hash, anonymous array or flattened format, using
+the C<add> method.
+
+Array entries must contain four elements, in the order of:
 	
-	[$matcher,$sub,$label,$count]
+	add([$matcher,$sub,$label,$count]);
 
-Hashes only need to specify the matcher and sub pairs
+Hashes ref format only need to specify the matcher and sub pairs
 
-	{matcher=>$matcher, sub=>$sub, label=>$label, count=>$count}
+	add({matcher=>$matcher, sub=>$sub, label=>$label, count=>$count});
 
-In either case, C<$sub> is the only field/item that must be defined. It must
-also be a CODE reference. 
+Single flattened format takes a list directly
+
+	add(matcher=>$matcher, sub => $sub);
+
+Or add using formats together
+
+	add(
+		[$matcher, $sub, $label, $count],
+		{matcher=> $matcher, sub=>$sub},
+		matcher=>$matcher, sub=>$sub
+	);
+
+In any case,C<$matcher> and C<$sub> are the only items which must be defined.
+It C<$sub> must also be a CODE reference. 
 
 If a label is not specified, one will be generated automatically. All the
 labels used in a call to C<add> are returned in the same order as the input
@@ -311,6 +325,14 @@ Please report via github
 =head1 TODO
 
 =over
+
+=item *
+
+Write tests for removing entries
+
+=item *
+
+Write tests for offline dispatcher
 
 =item *
 
