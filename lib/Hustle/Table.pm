@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.2.2");
+use version; our $VERSION=version->declare("v0.2.3");
 
 use strict;
 use warnings;
@@ -49,15 +49,25 @@ sub add {
 				$entry=[$item->@{qw<matcher sub label count>}];
 			}
 			default {
-				my %item=@list;
-				$entry=[@item{qw<matcher sub label count>}];
-				$rem =1;
+				if(@list>=4){		#Flat hash/list key pairs passed in sub call
+					my %item=@list;
+					$entry=[@item{qw<matcher sub label count>}];
+					$rem =1;
+				}
+				elsif(@list==2){
+					# matcher=>sub
+					$entry=[$list[0],$list[1],undef,undef];
+					$rem=1;
+				}
+				else{
+					
+				}
 			}
 
 		}
 		$entry->[label_]=$id++ unless defined $entry->[label_];
 		$entry->[count_]= 0 unless defined $entry->[count_];
-		croak "target is not a sub refernce" unless ref $entry->[sub_] eq "CODE";
+		croak "target is not a sub reference" unless ref $entry->[sub_] eq "CODE";
 		croak "matcher not specified" unless defined $entry->[matcher_];
 		#Append the item to the of the list (minus defaut)
 		if(defined $entry->[matcher_]){
