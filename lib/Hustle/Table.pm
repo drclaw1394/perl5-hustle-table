@@ -11,6 +11,10 @@ use feature "state";
 
 use Carp qw<carp croak>;
 
+use Exporter 'import';
+
+our @EXPORT_OK=qw< hustle_add hustle_remove hustle_set_default hustle_reset_counter hustle_prepare_dispatcher >;
+our @EXPORT=@EXPORT_OK;
 
 use constant DEBUG=>0;
 
@@ -28,7 +32,8 @@ use enum (qw<matcher_ sub_ label_ count_>);
 #
 sub new {
 	my $class=shift//__PACKAGE__;
-	bless [[undef,sub {1},"default",0]],$class;	#Prefill with default handler
+	my $default=shift//sub {1};
+	bless [[undef,$default,"default",0]],$class;	#Prefill with default handler
 }
 
 #Add and sort accorind to count/priority
@@ -314,8 +319,12 @@ sub _prepare_online_cached {
 }
 
 
+*hustle_add=*add;
+*hustle_remove=*remove;
+*hustle_set_default=*set_default;
+*hustle_reset_counter=*reset_counter;
+*hustle_prepare_dispatcher=*prepare_dispatcher;
 
-# Autoload methods go after =cut, and are processed by the autosplit program.
 
 1;
 __END__

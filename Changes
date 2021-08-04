@@ -1,6 +1,7 @@
 Revision history for Perl extension Hustle::Table
-0.2.3	Mon 19 Jul 2021 04:01:35 AEST
+0.2.3	Tue  3 Aug 2021 15:19:45 AEST
 	- Added simple two element entry add
+	- Constructor can take default handler directly
 	- Spelling fixes
 	
 0.2.2 

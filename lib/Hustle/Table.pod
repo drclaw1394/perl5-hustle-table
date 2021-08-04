@@ -1,6 +1,6 @@
 =head1 NAME
 
-Hustle::Table - Pattern dispatch to subroutines references
+Hustle::Table - Precompiled pattern dispatch to code with optional optimisation
 
 =head1 SYNOPSIS
 
