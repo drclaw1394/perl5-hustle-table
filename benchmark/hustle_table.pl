@@ -10,7 +10,7 @@ use Hustle::Table;
 
 my ($matchers,$samples)= do "$FindBin::Bin/data.pl";
 
-my @list=map {[$_,sub {},undef,undef]} @$matchers;
+my @list=map {[$_,sub {},undef,undef,undef]} @$matchers;
 
 
 my $table=Hustle::Table->new();
