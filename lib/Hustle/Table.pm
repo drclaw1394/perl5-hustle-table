@@ -215,22 +215,25 @@ sub _reorder{
 sub _prepare_online {
         \my @table=shift; #self
         my $d="sub {\n";
-        $d.=' given (shift) {'."\n";		#Shift out first argument
+	$d.='	my $entry;'."\n";
+        $d.='	given (shift) {'."\n";		#Shift out first argument
         for (0..@table-2) {
-                my $pre='$table['.$_.']';
+		#$d.='		$entry=$table['.$_.']'."\n";
+		#my $pre='$table['.$_.']';
 
-                $d.='when ('.$pre."[matcher_]){\n";
-                $d.=$pre."[count_]++;\n";
-		$d.="unshift \@_,$pre;\n";	#First argument is the match entry
-                $d.='&{'.$pre.'[sub_]};'."\n";
-                $d.="}\n";
+                $d.='		when (($entry=$table['.$_.'])->[matcher_]){'."\n";
+                $d.='			$entry->[count_]++;'."\n";
+		$d.="			unshift \@_, \$entry;\n";	#First argument is the match entry
+                $d.='			&{$entry->[sub_]};'."\n";
+                $d.="		}\n";
         }
-        $d.="default {\n";
-        $d.='$table[$#table][count_]++;'."\n";
-	$d.='unshift @_,$table[$#table];'."\n";	#First argument is the match entry
-        $d.='&{$table[$#table][sub_]};'."\n";
-        $d.="}\n";
-        $d.="}\n}\n";
+        $d.="		default {\n";
+        $d.='			$table[$#table][count_]++;'."\n";
+	$d.='			unshift @_,$table[$#table];'."\n";	#First argument is the match entry
+        $d.='			&{$table[$#table][sub_]};'."\n";
+        $d.="		}\n";
+        $d.="	}\n}\n";
+	#print $d;
         my $s=eval($d);
 	$s
 	
@@ -289,47 +292,47 @@ sub _prepare_online_cached {
 
 	
 	my $d="sub {\n";
-	#$d.='my ($dut)=@_;'."\n";
-	$d.='my $input=$_[0];'."\n";
-	$d.='shift;'."\n";
-	$d.='given( $input){
-		my $hit=$cache->{$_};
-		if(defined $hit){
+	$d.='my $input=shift @_;'."\n";
+	$d.='given($input){
+		my $rhit=$cache->{$_};
+		if($rhit){
+			\my @hit=$rhit;
 			#normal case, acutally executes potental regex
-			when($hit->[matcher_]){
-				$hit->[count_]++;
-				unshift @_, $hit;
-				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+			when($hit[matcher_]){
+				$hit[count_]++;
+				unshift @_, $rhit;
+				delete $cache->{$_} if &{$hit[sub_]}; #delete if return is true
 				return;
 
 			}
 			#if the first case does ot match, its because the cached entry is the default (undef matcher)
-			#when(!defined $hit->[matcher_]){	#default case, test for defined
 			default{
-				$hit->[count_]++;
-				unshift @_, $hit;
-				delete $cache->{$_} if &{$hit->[sub_]}; #delete if return is true
+				$hit[count_]++;
+				unshift @_, $rhit;
+				delete $cache->{$_} if &{$hit[sub_]}; #delete if return is true
 				return;
 			}
 		}
 	}';
-
-	$d.="\n".' given ($input) {'."\n";
+	$d.="\n".'	my $entry;';
+	$d.="\n".'	given ($input) {'."\n";
 
 
 	for (0..@table-2) {
-		my $pre='$table['.$_.']';
+		#my $pre='$table['.$_.']';
 
-		$d.='when ('.$pre."[matcher_]){\n";
-		$d.=$pre."[count_]++;\n";
-		$d.="unshift \@_, $pre;\n";
-		$d.='$cache->{$input}='."$pre unless &{$pre".'[sub_]};'."\n";
-		$d.="return;\n}\n";
+		$d.='		when (($entry=$table['.$_.'])->[matcher_]){'."\n";
+		$d.='			$entry->[count_]++;'."\n";
+		$d.='			unshift @_, $entry;'."\n";
+		$d.='			$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";
+		$d.="			return;\n";
+		$d.="		}\n";
 	}
-	$d.="}\n";
-	$d.='unshift @_,$table[$#table];'."\n";
-	$d.='$cache->{$input}=$table[$#table] unless &{$table[$#table][sub_]};'."\n";
-        $d.='$table[$#table][count_]++;'."\n";
+	$d.="	}\n";
+	$d.='	$entry=$table[$#table];'."\n";
+	$d.='	unshift @_, $entry;'."\n";
+	$d.='	$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";
+        $d.='	$entry->[count_]++;'."\n";
 	$d.="}\n";
 	#print $d;
 	eval($d);
