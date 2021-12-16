@@ -20,7 +20,7 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
   	#entry as a hash ref
   	{ matcher => qr/regex (match)/, sub => sub{ #can access regex capture }}, 
 
-	#entry as array ref, with label and priority values set
+	#entry as array ref, with label, priority values and context set
 	[qr/another/, sub{}, "my label", 10,{}],			
 	
 	#undef matcher is default match all. Must be array ref format
@@ -48,12 +48,12 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
 
 =head1 DESCRIPTION
 
-This module provides a small class to construct a dispatch table and build a
+This module provides a small class to constructs a dispatch table and builds a
 dispatcher for it. All interactions are done via the object/class methods so no
 exports are defined.
 
-It supports straightforward optimisation of the dispatch table and also utilises
-an optional cache to squeeze even more performance out.
+It supports straightforward optimisation of the dispatch table and  an optional
+cache to squeeze even more performance out.
 
 Notable features include:
 
@@ -74,7 +74,7 @@ Captures in regex are available in dispatched subs
 
 =item *
 
-Arguments supplied to dispatcher (except first) are available to executed vector
+Arguments supplied to dispatcher (except first) are available to executed vector sub
 
 =item *
 
@@ -92,7 +92,7 @@ Fall through/catch all matching
 
 
 The dispatch table is essentially a list of at least one entry which maps a
-matcher to a subroutine to call on a successful match of the input.
+matcher to a subroutine which is called on a successful match of the input.
 
 Conceptually the list is looped over, applying the matchers sequentially to the
 input until a match is found. In practice it isn't a loop, but generated code
