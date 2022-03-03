@@ -1,8 +1,10 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.3.0");
+use version; our $VERSION=version->declare("v0.4.0");
 
 use strict;
 use warnings;
+
+use Template::Plex;
 
 use feature "refaliasing";
 no warnings "experimental";
@@ -213,6 +215,48 @@ sub _reorder{
 
 
 sub _prepare_online {
+	my $sub_template=
+	'	 
+	\$entry=\$table->[$index];
+	\$matcher=\$entry->[Hustle::Table::matcher_];
+	if(/\$matcher/o) {
+		\$entry->[Hustle::Table::count_]++;
+		unshift(\@_, \$entry);
+		return \&{\$entry->[Hustle::Table::sub_]};
+	}
+	';
+
+	my $template=
+	'sub {
+		my \$entry;
+		#my \$input=shift;
+		my \$matcher;
+		for(shift){
+		@{[do {
+		my $index=0;
+		my $base={index=>0};
+
+		my $sub=plex [$sub], $base;
+		map {$base->{index}=$_; $sub->render } 0..$table->@*-2;
+
+		}]}
+		#default
+		\$table->[\@\$table-1][Hustle::Table::count_]++;
+		unshift \@_, \$table->[\@\$table-1];
+		\&{\$table->[\@\$table-1][Hustle::Table::sub_]};
+		}
+	}
+	';
+
+	my $table=shift;
+	my $top_level=plex [$template],{table=>$table, temp=>"do it", sub=>$sub_template};
+	my $s=$top_level->render;
+	print $s, "\n";
+	eval $s;
+}
+
+
+sub _prepare_online_old{
         \my @table=shift; #self
         my $d="sub {\n";
 	$d.='	my $entry;'."\n";
