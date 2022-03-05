@@ -82,18 +82,20 @@ DESCRIPTION
     return value of the dispatch vector/sub
 
 VERSION DIFFERENCES
-    Version 0.4.0 "given"/"when" and thus the use of smart matching is
-    removed. This gives a nice performance improvement of up to 20% over
-    previous versions, however does mean the features of smart matching
-    (i.e. allowing string equality test ) is no longer supported. To match
-    an exact string you will need to make a regex matcher like "^exact$".
+    Version 0.4.0 and later "given"/"when" and thus the use of smart
+    matching is removed. This gives a nice performance improvement of up to
+    20% over previous versions, however does mean the features of smart
+    matching (i.e. allowing string equality test ) is no longer supported.
+    To match an exact string you will need to make a regex matcher like
+    "^exact$".
 
-    Version 0.3.0 The first argument supplied to the matched and dispatched
-    code ref is now the table entry, not the input string. All other
-    arguments to the dispatched sub present from calling the dispatcher
-    generated. If you need the input string that was being tested, pass it a
-    second time to the dispatcher: ie #Orginal style $dispatcher->($input,
-    $another, $arg, ...)
+    Version 0.3.0 and later The input string (the first arg to the
+    dispatcher) is removed and replaced with the matching table entry when
+    calling a dispatched sub. In Previous versions, all arguments would be
+    passed to the dispatched sub unchanged.
+
+    If you need the input string that was being tested, pass it a second
+    time to the dispatcher:
 
                     #From v0.3.0 Onwards
                             $dispatcher->($input, $input, $another, $arg. ..._)

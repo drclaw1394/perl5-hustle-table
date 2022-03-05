@@ -60,7 +60,8 @@ cache to squeeze even more performance out.
 Notable features include:
 
 - Captures in regex are available in dispatched subs
-- Arguments supplied to dispatcher (except first) are available to executed vector sub
+- Arguments supplied to dispatcher (except first) are available to executed
+vector sub
 - Cached pre-matching (optional)
 - Basic hit count and optimising (optional)
 - Fall through/catch all matching
@@ -72,7 +73,8 @@ Conceptually the list is looped over, applying the matchers sequentially to the
 input until a match is found. In practice it isn't a loop, but generated code
 reference with potentially optimised ordering of the entries.
 
-In the case of no successful match, a default catch all dispatch vector is called.
+In the case of no successful match, a default catch all dispatch vector is
+called.
 
 Matching performance is optionally boosted by using a hash as a cache. Hash
 lookup is much quicker than repeated conditional testing. Controlling which
@@ -81,20 +83,19 @@ dispatch vector/sub
 
 # VERSION DIFFERENCES
 
-**Version 0.4.0**
+**Version 0.4.0 and later**
 `given`/`when` and thus the use of smart matching is removed. This gives a
 nice performance improvement of up to 20% over previous versions, however does
 mean the features of smart matching (i.e.  allowing string equality test ) is
 no longer supported. To match an exact string you will need to make a regex
 matcher like `^exact$`.
 
-**Version 0.3.0**
-The first argument supplied to the matched and dispatched code ref is now the
-table entry, not the input string. All other arguments to the dispatched sub
-present from calling the dispatcher generated. If you need the input string that was being tested, pass it a second time to the dispatcher:
-	ie
-		#Orginal style
-			$dispatcher->($input, $another, $arg, ...)
+**Version 0.3.0 and later**
+The input string (the first arg to the dispatcher) is removed and replaced with
+the matching table entry when calling a dispatched sub. In Previous versions,
+all arguments would be passed to the dispatched sub unchanged.
+
+If you need the input string that was being tested, pass it a second time to the dispatcher:
 
 ```
             #From v0.3.0 Onwards
@@ -140,7 +141,8 @@ An entry contains the following fields
     qr|match and capture (this|that)|
     ```
 
-    When `matcher` is a regex, any capturing is accessible in the target `sub` via the dynamically scoped numbered capture group variables (i.e. `$1` et al.)
+    When `matcher` is a regex, any capturing is accessible in the target `sub`
+    via the dynamically scoped numbered capture group variables (i.e. `$1` et al.)
 
 - sub
 
@@ -163,14 +165,14 @@ An entry contains the following fields
 
 - count
 
-    `count` This is a dual purpose attributes. When adding entries to the list,
-    it is used as a priority. Higher numeric values are a higher priority. The list
-    is sorted in descending order of priority, meaning the highest priority is the
+    `count` This is a dual purpose attributes. When adding entries to the list, it
+    is used as a priority. Higher numeric values are a higher priority. The list is
+    sorted in descending order of priority, meaning the highest priority is the
     first element in the list.
 
     During running of the dispatch, this is a tally recording how many times,the
-    entry has been matched. This information can be then used as a priority
-    later to reorder the list.
+    entry has been matched. This information can be then used as a priority later
+    to reorder the list.
 
 - ctx
 
@@ -295,11 +297,13 @@ Arguments to this method include:
 
 - reorder
 
-    Flag indicating the table should be reordered/optimised before building the dispatcher.
+    Flag indicating the table should be reordered/optimised before building the
+    dispatcher.
 
 - reset
 
-    Flag specifying if counter statistics should be reset before building a dispatcher
+    Flag specifying if counter statistics should be reset before building a
+    dispatcher
 
 If no arguments are provided, the dispatcher will be created with the following
 defaults:
