@@ -46,6 +46,7 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
   #5. Offline optimisation is also possible
   
 
+
 =head1 DESCRIPTION
 
 This module provides a small class to constructs a dispatch table and builds a
@@ -60,13 +61,6 @@ Notable features include:
  
 =over 
 
-=item *
-
-Non exact (regexp) and exact (string) matching in the same table
-
-=item *
-
-Uses built-in Perl features  (regex, given/when, smart-match)
 
 =item *
 
@@ -104,6 +98,28 @@ Matching performance is optionally boosted by using a hash as a cache. Hash
 lookup is much quicker than repeated conditional testing. Controlling which
 inputs are removed from the cached is dictated by the return value of the
 dispatch vector/sub
+
+=head1 VERSION DIFFERENCES
+
+B<Version 0.4.0>
+C<given>/C<when> and thus the use of smart matching is removed. This gives a
+nice performance improvement of up to 20% over previous versions, however does
+mean the features of smart matching (i.e.  allowing string equality test ) is
+no longer supported. To match an exact string you will need to make a regex
+matcher like C<^exact$>.
+
+B<Version 0.3.0>
+The first argument supplied to the matched and dispatched code ref is now the
+table entry, not the input string. All other arguments to the dispatched sub
+present from calling the dispatcher generated. If you need the input string that was being tested, pass it a second time to the dispatcher:
+	ie
+		#Orginal style
+			$dispatcher->($input, $another, $arg, ...)
+
+		#From v0.3.0 Onwards
+			$dispatcher->($input, $input, $another, $arg. ..._)
+
+
 
 =head1 CREATING A TABLE
 
@@ -344,7 +360,7 @@ On the other hand when the distributing becomes 'centred', the reordering of
 the table can greatly improve the search time.
 
 On my laptop, the simple benchmark script, (with 6 dispatch entries) (regex and
-string) shows around 1.2M dispatches/s for non cached and over 2M dispatches/s
+string) shows around 1.4M dispatches/s for non cached and over 2M dispatches/s
 for cached dispatcher. Your results may vary.
 
 

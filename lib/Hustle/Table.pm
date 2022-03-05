@@ -219,11 +219,10 @@ sub _prepare_online {
 	'	 
 	\$entry=\$table->[$index];
 	\$matcher=\$entry->[Hustle::Table::matcher_];
-	if(/\$matcher/o) {
-		\$entry->[Hustle::Table::count_]++;
-		unshift(\@_, \$entry);
-		return \&{\$entry->[Hustle::Table::sub_]};
-	}
+	(/\$matcher/o)
+		and (++\$entry->[Hustle::Table::count_])
+		and unshift(\@_, \$entry)
+		and return \&{\$entry->[Hustle::Table::sub_]};
 	';
 
 	my $template=
@@ -249,7 +248,7 @@ sub _prepare_online {
 	';
 
 	my $table=shift;
-	my $top_level=plex [$template],{table=>$table, temp=>"do it", sub=>$sub_template};
+	my $top_level=plex [$template],{table=>$table, sub=>$sub_template};
 	my $s=$top_level->render;
 	print $s, "\n";
 	eval $s;
@@ -304,29 +303,76 @@ sub _prepare_goto_online {
         eval($d);
 }
 
-sub _prepare_online_2 {
-        \my @table=shift; #self
-        my $d="sub {\n";
-        #$d.='my ($dut)=@_;'."\n";
-	$d.= 'my $tmp;'."\n";
-        $d.=' given ($_[0]) {'."\n";
-        for (0..@table-2) {
-                my $pre='$table['.$_.']';
-		$d.='$tmp='.$pre.";\n";
-                $d.='when ($tmp->[matcher_]){'."\n";
-                $d.='$tmp->[count_]++;'."\n";
-                $d.='&{$tmp->[sub_]};'."\n";
-                $d.="}\n";
-        }
-        $d.="default {\n";
-        $d.='$table[$#table][count_]++;'."\n";
-        $d.='&{$table[$#table][sub_]};'."\n";
-        $d.="}\n";
-        $d.="}\n}\n";
-        eval($d);
+sub _prepare_online_cached {
+	my $table=shift; #self
+	my $cache=shift;
+	if(ref $cache ne "HASH"){
+		carp "Cache provided isn't a hash. Using internal cache with no size limits";
+		$cache={};
+	}
+
+	my $sub_template=
+	'	 
+	\$entry=\$table->[$index];
+	\$matcher=\$entry->[Hustle::Table::matcher_];
+	if(\$input=~/\$matcher/o){
+		++\$entry->[Hustle::Table::count_];
+		unshift(\@_, \$entry);
+		\$cache->{\$input}=\$entry unless \&{\$entry->[Hustle::Table::sub_]};
+		return;
+	}
+	';
+
+	my $template=
+	' sub {
+		my \$input=shift;
+		my \$rhit=\$cache->{\$input};
+		my \$matcher;
+		my \$entry;
+		if(\$rhit){
+			\\\my \@hit=\$rhit;
+			#normal case, acutally executes potental regex
+			\$matcher=\$hit[Hustle::Table::matcher_];
+			if(\$input=~/\$matcher/o){
+				++\$hit[Hustle::Table::count_];
+				unshift \@_, \$rhit;
+				delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
+				return;
+
+			}
+			#if the first case does ot match, its because the cached entry is the default (undef matcher)
+			else{
+				++\$hit[Hustle::Table::count_];
+				unshift \@_, \$rhit;
+				delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
+				return;
+			}
+		}
+		@{[do {
+			my $index=0;
+			my $base={index=>0};
+
+			my $sub=plex [$sub], $base;
+			map {$base->{index}=$_; $sub->render } 0..$table->@*-2;
+		}]}
+
+		\$entry=\$table->[\@\$table-1];
+		unshift \@_, \$entry;
+		\$cache->{\$input}=\$entry unless \&{\$entry->[Hustle::Table::sub_]};
+        	++\$entry->[Hustle::Table::count_];
+	} ';
+
+	my $top_level=plex [$template],{table=>$table, cache=>$cache, sub=>$sub_template};
+	my $s=$top_level->render;
+
+	#my $line=1;
+	#print map $line++.$_."\n", split "\n", $s;
+	my $ss=eval $s;
+	#print $@;
+	$ss;
 }
 
-sub _prepare_online_cached {
+sub _prepare_online_cached_old {
 	\my @table=shift; #self
 	my $cache=shift;
 	if(ref $cache ne "HASH"){
@@ -368,7 +414,7 @@ sub _prepare_online_cached {
 		$d.='		when (($entry=$table['.$_.'])->[matcher_]){'."\n";
 		$d.='			$entry->[count_]++;'."\n";
 		$d.='			unshift @_, $entry;'."\n";
-		$d.='			$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";
+		$d.='			$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";h
 		$d.="			return;\n";
 		$d.="		}\n";
 	}
