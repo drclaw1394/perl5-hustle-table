@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.4.0");
+use version; our $VERSION=version->declare("v0.4.1");
 
 use strict;
 use warnings;
@@ -250,58 +250,12 @@ sub _prepare_online {
 	my $table=shift;
 	my $top_level=plex [$template],{table=>$table, sub=>$sub_template};
 	my $s=$top_level->render;
-	print $s, "\n";
+	#print $s, "\n";
 	eval $s;
 }
 
 
-sub _prepare_online_old{
-        \my @table=shift; #self
-        my $d="sub {\n";
-	$d.='	my $entry;'."\n";
-        $d.='	given (shift) {'."\n";		#Shift out first argument
-        for (0..@table-2) {
-		#$d.='		$entry=$table['.$_.']'."\n";
-		#my $pre='$table['.$_.']';
 
-                $d.='		when (($entry=$table['.$_.'])->[matcher_]){'."\n";
-                $d.='			$entry->[count_]++;'."\n";
-		$d.="			unshift \@_, \$entry;\n";	#First argument is the match entry
-                $d.='			&{$entry->[sub_]};'."\n";
-                $d.="		}\n";
-        }
-        $d.="		default {\n";
-        $d.='			$table[$#table][count_]++;'."\n";
-	$d.='			unshift @_,$table[$#table];'."\n";	#First argument is the match entry
-        $d.='			&{$table[$#table][sub_]};'."\n";
-        $d.="		}\n";
-        $d.="	}\n}\n";
-	#print $d;
-        my $s=eval($d);
-	$s
-	
-}
-
-sub _prepare_goto_online {
-        \my @table=shift; #self
-        my $d="sub {\n";
-        #$d.='my ($dut)=@_;'."\n";
-        $d.=' given ($_[0]) {'."\n";
-        for (0..@table-2) {
-                my $pre='$table['.$_.']';
-
-                $d.='when ('.$pre."[matcher_]){\n";
-                $d.=$pre."[count_]++;\n";
-                $d.='goto '.$pre.'[sub_];'."\n";
-                $d.="}\n";
-        }
-        $d.="default {\n";
-        $d.='$table[$#table][count_]++;'."\n";
-        $d.='goto $table[$#table][sub_];'."\n";
-        $d.="}\n";
-        $d.="}\n}\n";
-        eval($d);
-}
 
 sub _prepare_online_cached {
 	my $table=shift; #self
@@ -372,61 +326,6 @@ sub _prepare_online_cached {
 	$ss;
 }
 
-sub _prepare_online_cached_old {
-	\my @table=shift; #self
-	my $cache=shift;
-	if(ref $cache ne "HASH"){
-		carp "Cache provided isn't a hash. Using internal cache with no size limits";
-		$cache={};
-	}
-
-	
-	my $d="sub {\n";
-	$d.='my $input=shift @_;'."\n";
-	$d.='given($input){
-		my $rhit=$cache->{$_};
-		if($rhit){
-			\my @hit=$rhit;
-			#normal case, acutally executes potental regex
-			when($hit[matcher_]){
-				$hit[count_]++;
-				unshift @_, $rhit;
-				delete $cache->{$_} if &{$hit[sub_]}; #delete if return is true
-				return;
-
-			}
-			#if the first case does ot match, its because the cached entry is the default (undef matcher)
-			default{
-				$hit[count_]++;
-				unshift @_, $rhit;
-				delete $cache->{$_} if &{$hit[sub_]}; #delete if return is true
-				return;
-			}
-		}
-	}';
-	$d.="\n".'	my $entry;';
-	$d.="\n".'	given ($input) {'."\n";
-
-
-	for (0..@table-2) {
-		#my $pre='$table['.$_.']';
-
-		$d.='		when (($entry=$table['.$_.'])->[matcher_]){'."\n";
-		$d.='			$entry->[count_]++;'."\n";
-		$d.='			unshift @_, $entry;'."\n";
-		$d.='			$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";h
-		$d.="			return;\n";
-		$d.="		}\n";
-	}
-	$d.="	}\n";
-	$d.='	$entry=$table[$#table];'."\n";
-	$d.='	unshift @_, $entry;'."\n";
-	$d.='	$cache->{$input}=$entry unless &{$entry->[sub_]};'."\n";
-        $d.='	$entry->[count_]++;'."\n";
-	$d.="}\n";
-	#print $d;
-	eval($d);
-}
 
 
 *hustle_add=*add;
