@@ -14,6 +14,8 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
   # sub:		required. The sub to call when matcher is 'true' when testing input
   # label:		optional. For identification
   # count:		optional. Used as priority when adding (larger number=> higher priority)
+  # context:		optional. User context passed as first argument to sub
+  # type		optional. default is regex. options include: start/end/exact/numeric
   # Can either be a array ref or hash ref
 
   $table->add(
@@ -21,17 +23,16 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
   	{ matcher => qr/regex (match)/, sub => sub{ #can access regex capture }}, 
 
 	#entry as array ref, with label, priority values and context set
-	[qr/another/, sub{}, "my label", 10,{}],			
+	[qr/another/, sub{}, "my label", 10,{}, undef],			
 	
 	#undef matcher is default match all. Must be array ref format
-	[undef,sub {},"default",undef,undef]				
+	[undef,sub {},"default",undef,undef,undef]				
   );
 
   #3. Prepare a dispatcher:
   # A dispatcher is sub reference, which is called directly with input to match
 
   my $dispatch = $table->prepare_dispatcher(
-	type => "online",		#either "online" (default="online") or "offline" 
 	cache => {},		#the hash to use as a cache
 	reorder => 1,		#reorder (default=1) table before building dispatcher	
 	reset => 0		#Reset (default=undef) entry counts
@@ -43,24 +44,24 @@ Hustle::Table - Pattern dispatch to code with optional optimisation
   #The dispatched sub is called with the match entry and then all argument from the second onwards
 
 
-  #5. Offline optimisation is also possible
+
   
 
 
 =head1 DESCRIPTION
 
-This module provides a small class to constructs a dispatch table and builds a
+This module provides a small class to construct a dispatch table and build a
 dispatcher for it. All interactions are done via the object/class methods so no
 exports are defined.
-
-It supports straightforward optimisation of the dispatch table and  an optional
-cache to squeeze even more performance out.
-
-Notable features include:
 
  
 =over 
 
+
+=item *
+
+Single table matches with any combination of regex, exact string, start string,
+end string or numeric comparisons
 
 =item *
 
@@ -89,9 +90,10 @@ Fall through/catch all matching
 The dispatch table is essentially a list of at least one entry which maps a
 matcher to a subroutine which is called on a successful match of the input.
 
-Conceptually the list is looped over, applying the matchers sequentially to the
-input until a match is found. In practice it isn't a loop, but generated code
-reference with potentially optimised ordering of the entries.
+Conceptually the list is looped over, testing the input against the matchers
+sequentially to the input until a match is found. In practice it isn't a loop,
+but generated code reference with potentially optimised ordering of the
+entries.
 
 In the case of no successful match, a default catch all dispatch vector is
 called.
@@ -103,6 +105,10 @@ dispatch vector/sub
 
 =head1 VERSION DIFFERENCES
 
+B<Version 0.5.0 and later>
+A single dispatch 'type' is now used in either cached or uncached variants.
+The 'offline' type has been removed
+
 B<Version 0.4.0 and later>
 C<given>/C<when> and thus the use of smart matching is removed. This gives a
 nice performance improvement of up to 20% over previous versions, however does
@@ -111,7 +117,7 @@ no longer supported. To match an exact string you will need to make a regex
 matcher like C<^exact$>.
 
 B<Version 0.3.0 and later>
-The input string (the first arg to the dispatcher) is removed and replaced with
+The input string (the first argument to the dispatcher) is removed and replaced with
 the matching table entry when calling a dispatched sub. In Previous versions,
 all arguments would be passed to the dispatched sub unchanged.
 
@@ -152,14 +158,18 @@ An entry contains the following fields
 
 =item matcher
 
-C<matcher> can be anything that smart-matching can handle. However the focus on
-this module is on strings and regular expressions
+C<matcher> can be a regex, a string or a numeric value.
 
  "match exaclty this stirng"
  qr|match and capture (this|that)|
 
 When C<matcher> is a regex, any capturing is accessible in the target C<sub>
 via the dynamically scoped numbered capture group variables (i.e. C<$1> et al.)
+
+When  C<matcher> is string or numeric value, the last field C<type> specifies
+how to perform the match
+
+If no C<type> is specified or is C<undef>, the C<matcher> is always treated as a regex
 
 =item sub
 
@@ -171,7 +181,7 @@ table, to allow tracing.
  $dispatcher->("my input","optional", "arguments", "to", "dispatched", "sub");
 
 The return value of the sub indicates if the input matched is to be
-removed from the cache. 
+removed from the cache, if a cache is used 
 
 =item label
 
@@ -181,13 +191,16 @@ useful for saving/loading from configuration files etc.
 =item count
 
 C<count> This is a dual purpose attributes. When adding entries to the list, it
-is used as a priority. Higher numeric values are a higher priority. The list is
-sorted in descending order of priority, meaning the highest priority is the
-first element in the list.
+is used as a priority. Higher numeric values are a higher priority. If the
+C<reorder> option is specified when preparing a dispatcher, the list is sorted
+in descending order of priority, meaning the highest priority is the first
+element in the list.
 
 During running of the dispatch, this is a tally recording how many times,the
 entry has been matched. This information can be then used as a priority later
-to reorder the list.
+to reorder the list. If the C<reset> option is specified when
+prepare_dispatcher, the C<count> field is reset to 0
+
 
 =item ctx
 
@@ -197,6 +210,29 @@ usually be a weak reference but can be any scalar.
 The dispatched subroutine has access to this value via the matcher entry, which
 is  the first argument to the called subroutine
 
+	ie 
+		sub {
+			my ($matcher, $optional, $args)=@_;
+			$matcher->[4]; #This is the context
+
+		}
+
+=item type
+
+C<type> is used to adjust how the matcher is interpreted. The possible values
+are:
+	
+	undef	=> 	matcher is always treated as a regex
+	"start"	=>	matches the begining of input string
+	"end"	=>	matches the end of input string
+	"exact"	=>	string equality
+	"numeric" =>	numeric equality
+
+If C<matcher> is indeed a regex, C<type> is ignored. 
+
+If C<matcher> is a string or number, it is treated as a regex unless C<type> is
+as above.
+
 =back
 
 
@@ -205,13 +241,13 @@ is  the first argument to the called subroutine
 Entries are added in anonymous hash, anonymous array or flattened format, using
 the C<add> method.
 
-Array entries must contain four elements, in the order of:
+Anonymous array entries must contain six elements, in the order of:
 	
-	$table->add([$matcher, $sub, $label, $count, $ctx]);
+	$table->add([$matcher, $sub, $label, $count, $ctx, $type]);
 
-Hashes ref format only need to specify the matcher and sub pairs
+Anonymous hashes format only need to specify the matcher and sub pairs
 
-	$table->add({matcher=>$matcher, sub=>$sub, label=>$label, count=>$count, ctx=>$ctx});
+	$table->add({matcher=>$matcher, sub=>$sub, label=>$label, count=>$count, ctx=>$ctx, type=>$type});
 
 Single flattened format takes a list directly. It must contain 4 elements
 
@@ -230,7 +266,7 @@ Or add multiple at once using mixed formats together
 	);
 
 In any case,C<$matcher> and C<$sub> are the only items which must be defined.
-C<$sub> must also be a CODE reference. 
+C<$sub> must also be a CODE reference.
 
 If a label is not specified, one will be generated automatically. All the
 labels used in a call to C<add> are returned in the same order as the input
@@ -280,27 +316,6 @@ Arguments to this method include:
 
 =over 
 
-=item type
-
-The type of dispatcher. Either "online" or "offline". If not specified, or an
-invalid value is supplied, an "online" dispatcher is created
-
-
-=over
-
-=item online
-
-Dispatcher which calls the dispatch vector, increases count statistics. This is
-what you normally would want to use in your code. Online mode.
-
-=item offline
-
-Dispatcher which only updates the count statistics. DOES NOT call dispatch
-vector. Useful for running a input data set through to obtain priority levels.
-Offline training mode.
-
-=back 
-
 =item cache
 
 The hash ref to use as the dispatchers cache
@@ -320,7 +335,7 @@ dispatcher
 If no arguments are provided, the dispatcher will be created with the following
 defaults:
 
-	my $dispatcher=$table->prepare_dispatcher(type=>"online", cache=>undef, reset=>undef, reorder=>1);
+	my $dispatcher=$table->prepare_dispatcher(cache=>undef, reset=>undef, reorder=>1);
 
 =head1 USING A DISPATCHER
 
@@ -354,8 +369,8 @@ it doesn't exist.
 =head2 OPTIMISATION
 
 The concept is to perform less searching to find the dispatch vector. However
-the type of input does play an important role in determining the best way
-perform the search.
+the distribution of input frequency does play an important role in determining
+the best way perform the search.
 
 For example a uniformly distributed input will not gain benefits from
 reordering the entries in the list.
@@ -393,21 +408,12 @@ Write tests for removing entries
 
 =item *
 
-Write tests for offline dispatcher
-
-=item *
-
-Override array STORE and FETCH interface to ensure default is preserved
-
-=item *
-
 Add a more concrete performance discussion
 
 =item *
 
-Document how to run offline dispatcher for optimising
-
 =back
+
 
 =head1 AUTHOR
 
@@ -415,7 +421,7 @@ Ruben Westerberg, E<lt>drclaw@mac.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2021 by Ruben Westerberg
+Copyright (C) 2022 by Ruben Westerberg
 
 Licensed under MIT and GNU
 

@@ -3,7 +3,7 @@ use warnings;
 
 use Hustle::Table;
 use Test::More;
-plan tests=>7;
+plan tests=>6;
 
 #does it require ok
 require_ok("Hustle::Table");
@@ -23,9 +23,6 @@ ok defined $table, "New table";
 
 	$dispatcher=$table->prepare_dispatcher(type=>"online",cache=>{});
 	ok(defined $dispatcher,"Online cached dispatcher compile");
-
-	$dispatcher=$table->prepare_dispatcher(type=>"unkown");
-	ok(!defined $dispatcher, "Invalid dispatcher check");
 
 	$dispatcher=$table->prepare_dispatcher(type=>"online", cache=>[]);
 	ok(!defined $dispatcher, "Invalid cache check");

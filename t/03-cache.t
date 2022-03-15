@@ -18,7 +18,7 @@ $table->add(
 	{matcher=>qr/^cached/, 		sub=>sub {$hit{$_[0]}++; !$deleteFromCache}},
 );
 
-my $dispatcher=$table->prepare_dispatcher(type=>"online", cache=>\%cache);
+my $dispatcher=$table->prepare_dispatcher(cache=>\%cache);
 
 $dispatcher->("uncached");
 $dispatcher->("cached");
