@@ -28,7 +28,7 @@ $table->add({matcher=>qr/re(g)ex/, sub=>sub {
 $table->set_default(sub { ok $_[1] eq "unmatched", "Defualt as expected"});
 
 
-my $dispatcher=$table->prepare_dispatcher(type=>"online",cache=>undef);
+my $dispatcher=$table->prepare_dispatcher(cache=>undef);
 
 #Execute dispatcher and tests
 $dispatcher->("exact","exact");

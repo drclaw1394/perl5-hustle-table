@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.5.0");
+use version; our $VERSION=version->declare("v0.5.1");
 
 use strict;
 use warnings;
@@ -148,11 +148,12 @@ sub prepare_dispatcher{
 
 	do {
 		my $d;
-		if(ref($options{cache}) eq "HASH"){
+		if(!$options{multimatch} and ref($options{cache}) eq "HASH"){
+			#can no cache multi match
 			$d=$self->_prepare_online_cached($options{cache});
 		}
 		else{
-			$d=$self->_prepare_online;
+			$d=$self->_prepare_online($options{multimatch});
 		}
 		$d;
 	}
@@ -176,13 +177,13 @@ sub _prepare_online {
 	\$entry=\$table->[$index];
 	\$matcher=\$entry->[Hustle::Table::matcher_];
 	@{[do {
-		my $d;
+		my $d="";
 		for($item->[Hustle::Table::type_]){
                         if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
-                           $d=\'(/$matcher/o)\';
+                        	$d=\'(/$matcher/o)\';
                         }
                         elsif(/exact/){
-                                $d=\'($matcher eq $_)\';
+                                $d=\'($_ eq $matcher)\';
                         }
                         elsif(/start/){
                                 $d=\'(index($_, $matcher)==0)\';
@@ -198,12 +199,28 @@ sub _prepare_online {
                                 $d=\'(/$matcher/o)\';
                         }
 		}
+		$d.=\' and (++$entry->[Hustle::Table::count_])\';
+		if($multimatch){
+				$d.= \' and $entry->[Hustle::Table::sub_]->($entry, @_);\'
+		}
+		else{
+				$d.= \' and unshift(@_, $entry)\';
+				$d.=\' and return &{$entry->[Hustle::Table::sub_]};\'
+		}
+
 		$d;
 	}]}
-		and (++\$entry->[Hustle::Table::count_])
-		and unshift(\@_, \$entry)
-		and return \&{\$entry->[Hustle::Table::sub_]};
 	';
+
+                ##################################################################
+                # and (++\$entry->[Hustle::Table::count_])                       #
+                # and unshift(\@_, \$entry)                                      #
+                # and @{[ $multimatch                                            #
+                #                 ? \'&{$entry->[Hustle::Table::sub_]};\'        #
+                #                 : \'return &{$entry->[Hustle::Table::sub_]};\' #
+                # ]}                                                             #
+                ##################################################################
+	#return \&{\$entry->[Hustle::Table::sub_]};
 
 	my $template=
 	'sub {
@@ -214,13 +231,16 @@ sub _prepare_online {
 		for(shift){
 		@{[do {
 		my $index=0;
-		my $base={index=>0, item=>undef};
+		my $base={index=>0, item=>undef, multimatch=>$multimatch};
 
 		my $sub=plex [$sub], $base;
+		
 		map {
 			$base->{index}=$_;
 			$base->{item}=$table->[$_];
-			$sub->render 
+			my $s=$sub->render;
+			print $s;
+			$s;
 			} 0..$table->@*-2;
 
 		}]}
@@ -233,7 +253,8 @@ sub _prepare_online {
 	';
 
 	my $table=shift;
-	my $top_level=plex [$template],{table=>$table, sub=>$sub_template};
+	my $multimatch=shift;
+	my $top_level=plex [$template],{table=>$table, sub=>$sub_template, multimatch=>$multimatch};
 	my $s=$top_level->render;
 	#print $s, "\n";
 	eval $s;
