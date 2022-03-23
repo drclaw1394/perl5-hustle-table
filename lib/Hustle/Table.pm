@@ -290,31 +290,37 @@ sub _prepare_online_cached {
 		$cache={};
 	}
 
+	#\$matcher=\$entry->[Hustle::Table::matcher_];
 	my $sub_template=
 	'	 
 	\$entry=\$table->[$index];
-	\$matcher=\$entry->[Hustle::Table::matcher_];
 	@{[do {
 		my $d="";
 		for($item->[Hustle::Table::type_]){
                         if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
-                        	$d=\'($input=~/$matcher/o)\';
+				#$d=\'($input=~/$matcher/o)\';
+				$d=\'($input=~$entry->[Hustle::Table::matcher_])\';
                         }
                         elsif(/exact/){
-                                $d=\'($input eq $matcher)\';
+				#$d=\'($input eq $matcher)\';
+				$d=\'($input eq $entry->[Hustle::Table::matcher_])\';
                         }
                         elsif(/start/){
-                                $d=\'(index($input, $matcher)==0)\';
+				#$d=\'(index($input, $matcher)==0)\';
+                                $d=\'(index($input, $entry->[Hustle::Table::matcher_])==0)\';
                         }
                         elsif(/end/){
-                                $d=\'(index(reverse($input), reverse($matcher))==0)\';
+				#$d=\'(index(reverse($input), reverse($matcher))==0)\';
+                                $d=\'(index(reverse($input), reverse($entry->[Hustle::Table::matcher_]))==0)\';
                         }
                         elsif(/numeric/){
-                                $d=\'($matcher == $input)\';
+			#$d=\'($matcher == $input)\';
+                                $d=\'($entry->[Hustle::Table::matcher_] == $input)\';
                         }
                         else{
                                 #assume a regex
-                                $d=\'($input=~/$matcher/o)\';
+				#$d=\'($input=~/$matcher/o)\';
+				$d=\'($input=~$entry->[Hustle::Table::matcher_])\';
                         }
 		}
 		$d.=\' and (++$entry->[Hustle::Table::count_])\';
@@ -333,24 +339,25 @@ sub _prepare_online_cached {
 	}]}
 	';
 
+	#my \$matcher;
+		#\$matcher=\$hit[Hustle::Table::matcher_];
 	my $template=
 	' sub {
 		my \$input=shift;
 		my \$rhit=\$cache->{\$input};
-		my \$matcher;
 		my \$entry;
 		if(\$rhit){
 			\\\my \@hit=\$rhit;
 			#normal case, acutally executes potental regex
-			\$matcher=\$hit[Hustle::Table::matcher_];
 			unless(\$hit[Hustle::Table::type_]){
-				if(\$input=~/\$matcher/o){
+				if(\$input=~ \$hit[Hustle::Table::matcher_]){
 					++\$hit[Hustle::Table::count_];
 					unshift \@_, \$rhit;
 					delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
 					return;
 
 				}
+
 				#if the first case does not match, its because the cached entry is the default (undef matcher)
 				else{
 					++\$hit[Hustle::Table::count_];
