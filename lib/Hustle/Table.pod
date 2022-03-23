@@ -105,6 +105,9 @@ dispatch vector/sub
 
 =head1 VERSION DIFFERENCES
 
+B<Version 0.5.1 and later>
+Added support for multimatching.
+
 B<Version 0.5.0 and later>
 A single dispatch 'type' is now used in either cached or uncached variants.
 The 'offline' type has been removed
@@ -182,6 +185,9 @@ table, to allow tracing.
 
 The return value of the sub indicates if the input matched is to be
 removed from the cache, if a cache is used 
+
+
+In multimatch mode, the C<sub> can actually be any scalar.
 
 =item label
 
@@ -330,21 +336,37 @@ dispatcher.
 Flag specifying if counter statistics should be reset before building a
 dispatcher
 
+=item multimatch
+
+This makes the dispatcher return a list of matched entries.  Processing of the
+list is then upto to the user. Caching is unsupported in this mode
+
 =back
 
 If no arguments are provided, the dispatcher will be created with the following
 defaults:
 
-	my $dispatcher=$table->prepare_dispatcher(cache=>undef, reset=>undef, reorder=>1);
+	my $dispatcher=$table->prepare_dispatcher(cache=>undef, reset=>undef, reorder=>1, multimatch=>undef);
 
 =head1 USING A DISPATCHER
+
+=head2 Normal/Single Match
 
 The dispatcher is simply a sub. Any arguments passed to it are passed to the
 dispatch vector as is.
 
 	$dispatcher->("input", "argument1",2);
 
+=head2 Multimatch
 
+In Multimatch mode, the matches are returns as a list. You can access the sub field as item 1 in the matcher. The example below calls the C<sub> in each matcher in the same format it would have been called in single match mode:
+
+	 my @matches=$dispatcher->("input"); 
+	 for(@matches){
+	 	$_->[1]($_, "args", "for", "vector");
+	}
+
+Note that in multimatch mode, the C<sub> can be any scalar vector.
 
 
 =head1 PERFORMANCE

@@ -1,4 +1,9 @@
 Revision history for Perl extension Hustle::Table
+0.5.1	Tue 22 Mar 2022 09:35:40 AEST
+	- Added multimatch support
+	- Multimatch returns an array of match entries
+	- Multimatch allows for sub entry to be any scalar, not just a code reference
+	- Cached dispatcher does not support multimatch as the cache lookup is via a hash
 
 0.5.0 	Tue 15 Mar 2022 21:08:05 AEST
 	- Fixed missing context for default entry in constructor

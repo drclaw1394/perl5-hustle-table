@@ -15,7 +15,7 @@ my $capture;
 my $deleteFromCache=1;
 $table->add(
 	{matcher=>qr/^uncached/, 	sub=>sub {$hit{$_[0]}++; $deleteFromCache}},
-	{matcher=>qr/^cached/, 		sub=>sub {$hit{$_[0]}++; !$deleteFromCache}},
+	{matcher=>"cached", type=>"begin",		sub=>sub {$hit{$_[0]}++; !$deleteFromCache}},
 );
 
 my $dispatcher=$table->prepare_dispatcher(cache=>\%cache);

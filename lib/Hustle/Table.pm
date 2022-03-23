@@ -201,7 +201,8 @@ sub _prepare_online {
 		}
 		$d.=\' and (++$entry->[Hustle::Table::count_])\';
 		if($multimatch){
-				$d.= \' and $entry->[Hustle::Table::sub_]->($entry, @_);\'
+				$d.= \' and push(@multi, $entry);\' 
+				#$entry->[Hustle::Table::sub_]->($entry, @_);\'
 		}
 		else{
 				$d.= \' and unshift(@_, $entry)\';
@@ -228,6 +229,9 @@ sub _prepare_online {
 		my \$entry;
 		#my \$input=shift;
 		my \$matcher;
+
+		my \@multi;
+
 		for(shift){
 		@{[do {
 		my $index=0;
@@ -235,22 +239,37 @@ sub _prepare_online {
 
 		my $sub=plex [$sub], $base;
 		
-		map {
+		my $d=join "\n", map {
 			$base->{index}=$_;
 			$base->{item}=$table->[$_];
-			my $s=$sub->render;
-			print $s;
-			$s;
+			$sub->render;
+			
 			} 0..$table->@*-2;
 
+
+		if($multimatch){
+			$d.=\'
+			\';
+			$d.=\'return @multi;\'
+		}
+		else {
+			$d.=\'$table->[@$table-1][Hustle::Table::count_]++;\'.
+			\'unshift @_, $table->[@$table-1];\'.
+			\'&{$table->[@$table-1][Hustle::Table::sub_]};\'
+		}
+		$d
+
 		}]}
-		#default
-		\$table->[\@\$table-1][Hustle::Table::count_]++;
-		unshift \@_, \$table->[\@\$table-1];
-		\&{\$table->[\@\$table-1][Hustle::Table::sub_]};
 		}
 	}
 	';
+                ####################################################
+                # #default                                         #
+                #                                                  #
+                # \$table->[\@\$table-1][Hustle::Table::count_]++; #
+                # unshift \@_, \$table->[\@\$table-1];             #
+                # \&{\$table->[\@\$table-1][Hustle::Table::sub_]}; #
+                ####################################################
 
 	my $table=shift;
 	my $multimatch=shift;
@@ -275,12 +294,43 @@ sub _prepare_online_cached {
 	'	 
 	\$entry=\$table->[$index];
 	\$matcher=\$entry->[Hustle::Table::matcher_];
-	if(\$input=~/\$matcher/o){
-		++\$entry->[Hustle::Table::count_];
-		unshift(\@_, \$entry);
-		\$cache->{\$input}=\$entry unless \&{\$entry->[Hustle::Table::sub_]};
-		return;
-	}
+	@{[do {
+		my $d="";
+		for($item->[Hustle::Table::type_]){
+                        if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
+                        	$d=\'($input=~/$matcher/o)\';
+                        }
+                        elsif(/exact/){
+                                $d=\'($input eq $matcher)\';
+                        }
+                        elsif(/start/){
+                                $d=\'(index($input, $matcher)==0)\';
+                        }
+                        elsif(/end/){
+                                $d=\'(index(reverse($input), reverse($matcher))==0)\';
+                        }
+                        elsif(/numeric/){
+                                $d=\'($matcher == $input)\';
+                        }
+                        else{
+                                #assume a regex
+                                $d=\'($input=~/$matcher/o)\';
+                        }
+		}
+		$d.=\' and (++$entry->[Hustle::Table::count_])\';
+		if($multimatch){
+				$d.= \' and push(@multi, $entry);\' 
+				#$entry->[Hustle::Table::sub_]->($entry, @_);\'
+		}
+		else{
+				$d.= \' and unshift(@_, $entry)\';
+				$d.=\' and $cache->{$input}=$entry\';
+				$d.=\' and return &{$entry->[Hustle::Table::sub_]};\'
+
+		}
+
+		$d;
+	}]}
 	';
 
 	my $template=
@@ -293,27 +343,43 @@ sub _prepare_online_cached {
 			\\\my \@hit=\$rhit;
 			#normal case, acutally executes potental regex
 			\$matcher=\$hit[Hustle::Table::matcher_];
-			if(\$input=~/\$matcher/o){
-				++\$hit[Hustle::Table::count_];
-				unshift \@_, \$rhit;
-				delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
-				return;
+			unless(\$hit[Hustle::Table::type_]){
+				if(\$input=~/\$matcher/o){
+					++\$hit[Hustle::Table::count_];
+					unshift \@_, \$rhit;
+					delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
+					return;
 
+				}
+				#if the first case does not match, its because the cached entry is the default (undef matcher)
+				else{
+					++\$hit[Hustle::Table::count_];
+					unshift \@_, \$rhit;
+					\&{\$hit[Hustle::Table::sub_]};
+					#delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
+					return;
+				}
 			}
-			#if the first case does ot match, its because the cached entry is the default (undef matcher)
 			else{
-				++\$hit[Hustle::Table::count_];
+				#string or number
 				unshift \@_, \$rhit;
-				delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
+				\&{\$hit[Hustle::Table::sub_]};
+				#delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
 				return;
 			}
 		}
 		@{[do {
 			my $index=0;
-			my $base={index=>0};
+			my $base={index=>0, item=>undef};
 
 			my $sub=plex [$sub], $base;
-			map {$base->{index}=$_; $sub->render } 0..$table->@*-2;
+			map {
+				$base->{index}=$_;
+				$base->{item}=$table->[$_];
+				my $s=$sub->render;
+				#print $s;
+				$s;
+			} 0..$table->@*-2;
 		}]}
 
 		\$entry=\$table->[\@\$table-1];
@@ -326,7 +392,7 @@ sub _prepare_online_cached {
 	my $s=$top_level->render;
 
 	#my $line=1;
-	#print map $line++.$_."\n", split "\n", $s;
+	#print map $_."\n", split "\n", $s;
 	my $ss=eval $s;
 	#print $@;
 	$ss;
