@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.5.1");
+use version; our $VERSION=version->declare("v0.5.0");
 
 use strict;
 use warnings;
@@ -12,53 +12,46 @@ use feature "state";
 
 use Carp qw<carp croak>;
 
-use Exporter 'import';
 
-our @EXPORT_OK=qw< hustle_add hustle_remove hustle_set_default hustle_reset_counter hustle_prepare_dispatcher >;
-our @EXPORT=@EXPORT_OK;
 
 use constant DEBUG=>0;
 
 #constants for entry fields
-use enum (qw<matcher_ sub_ label_ count_ ctx_ type_>);
+use enum (qw<matcher_ value_ type_ default_>);
 
 #Public API
 #
 sub new {
 	my $class=shift//__PACKAGE__;
-	my $default=shift//sub {1};
-	my $ctx=shift;
-	bless [[undef,$default,"default",0, $ctx, undef]],$class;	#Prefill with default handler
+	my $default=shift//undef;
+	bless [[undef,$default, "exact",1]],$class;	#Prefill with default handler
 }
 
-#Add and sort according to count/priority
 sub add {
 	my ($self,@list)=@_;
 	my $entry;
-	state $id=0;
-	my @ids;
 	my $rem;
 	for my $item (@list){
 		for(ref $item){
 			if(/ARRAY/){
 				#warn $item->$*;
 				$entry=$item;
-				croak "Incorrect number of items in dispatch vector. Should be 6" unless $entry->@* == 6;
+				croak "Incorrect number of items in dispatch vector. Should be 3" unless $entry->@* == 3;
 			}
 
 			elsif(/HASH/){
-				$entry=[$item->@{qw<matcher sub label count cxt type>}];
+				$entry=[$item->@{qw<matcher value type>}];
 			}
 
 			else{
 				if(@list>=4){		#Flat hash/list key pairs passed in sub call
 					my %item=@list;
-					$entry=[@item{qw<matcher sub label count ctx type>}];
+					$entry=[@item{qw<matcher value type>}];
 					$rem =1;
 				}
-				elsif(@list==2){	#Flat list of matcher and sub
+				elsif(@list==2){	#Flat list of matcher and sub. Assume regex
 					# matcher=>sub
-					$entry=[$list[0],$list[1],undef,undef,undef,undef];
+					$entry=[$list[0],$list[1],undef];
 					$rem=1;
 				}
 				else{
@@ -68,219 +61,41 @@ sub add {
 
 		}
 
-		$entry->[label_]=$id++ unless defined $entry->[label_];
-		$entry->[count_]= 0 unless defined $entry->[count_];
-		croak "target is not a sub reference" unless ref $entry->[sub_] eq "CODE";
 		croak "matcher not specified" unless defined $entry->[matcher_];
 
 		if(defined $entry->[matcher_]){
 			#Append to the end of the normal matching list 
 			splice @$self, @$self-1,0, $entry;
-			push @ids,$entry->[label_];
 		}
 		else {
 			#No matcher, thus this used as the default
-			$self->[$self->@*-1]=$entry;
+			$self->set_default($entry->[value_]);
+			#$self->[$self->@*-1]=$entry;
 		}
 		last if $rem;
-
 	}
-
-	#Reorder according to count/priority
-	$self->_reorder;
-	if(wantarray){
-		return @ids;
-	}
-	return scalar @ids;
 }
 
 
 #overwrites the default handler.
 sub set_default {
-	my ($self,$sub,$ctx)=@_;
-	my $entry=[undef,$sub,"default",0,$ctx,undef];
+	my ($self,$sub)=@_;
+	my $entry=[undef,$sub,"exact",1];
 	$self->[@$self-1]=$entry;
 }
 
-#TODO:
-# handle removal of default better
-sub remove {
-	my ($self,@labels) =@_;
-
-	my @removed;
-	OUTER:
-	for my $label (@labels){
-		for(0..@$self-2){
-			if($self->[$_][label_] eq $label){
-				push @removed, splice @$self, $_,1;
-				next OUTER;
-			}
-		}
-	}
-	return @removed;
-}
-
-
-sub reset_counters {
-	\my @t=shift; #self
-	for (@t){
-		$_->[count_]=0;
-	}
-}
 
 
 sub prepare_dispatcher{
 	my $self=shift;
 	my %options=@_;
-
-	$options{reorder}//=1;
-	$options{reset}//=undef;
-
-	if(defined $options{reorder} and $options{reorder}){
-		$self->_reorder;
-	}
-
-	if(defined $options{reset} and $options{reset}){
-		$self->reset_counters;
-	}
-
-	carp("Cache not used. Cache must be undef or a hash ref") and return undef if defined $options{cache} and ref($options{cache}) ne "HASH";
-
-	do {
-		my $d;
-		if(!$options{multimatch} and ref($options{cache}) eq "HASH"){
-			#can no cache multi match
-			$d=$self->_prepare_online_cached($options{cache});
-		}
-		else{
-			$d=$self->_prepare_online($options{multimatch});
-		}
-		$d;
-	}
+	my $cache=$options{cache}//{};
+	$self->_prepare_online_cached($cache);
 }
 
 #
 #Private API
 #
-sub _reorder{
-	\my @self=shift;	#let sort work in place
-	my $default=pop @self;	#prevent default from being sorted
-	@self=sort {$b->[count_] <=> $a->[count_]} @self;
-	push @self, $default;	#restore default
-	1;
-}
-
-
-sub _prepare_online {
-	my $sub_template=
-	'	 
-	\$entry=\$table->[$index];
-	\$matcher=\$entry->[Hustle::Table::matcher_];
-	@{[do {
-		my $d="";
-		for($item->[Hustle::Table::type_]){
-                        if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
-                        	$d=\'(/$matcher/o)\';
-                        }
-                        elsif(/exact/){
-                                $d=\'($_ eq $matcher)\';
-                        }
-                        elsif(/start/){
-                                $d=\'(index($_, $matcher)==0)\';
-                        }
-                        elsif(/end/){
-                                $d=\'(index(reverse($_), reverse($matcher))==0)\';
-                        }
-                        elsif(/numeric/){
-                                $d=\'($matcher == $_)\';
-                        }
-                        else{
-                                #assume a regex
-                                $d=\'(/$matcher/o)\';
-                        }
-		}
-		$d.=\' and (++$entry->[Hustle::Table::count_])\';
-		if($multimatch){
-				$d.= \' and push(@multi, $entry);\' 
-				#$entry->[Hustle::Table::sub_]->($entry, @_);\'
-		}
-		else{
-				$d.= \' and unshift(@_, $entry)\';
-				$d.=\' and return &{$entry->[Hustle::Table::sub_]};\'
-		}
-
-		$d;
-	}]}
-	';
-
-                ##################################################################
-                # and (++\$entry->[Hustle::Table::count_])                       #
-                # and unshift(\@_, \$entry)                                      #
-                # and @{[ $multimatch                                            #
-                #                 ? \'&{$entry->[Hustle::Table::sub_]};\'        #
-                #                 : \'return &{$entry->[Hustle::Table::sub_]};\' #
-                # ]}                                                             #
-                ##################################################################
-	#return \&{\$entry->[Hustle::Table::sub_]};
-
-	my $template=
-	'sub {
-		no warnings "numeric"; #TODO: Note in docs about 0 match
-		my \$entry;
-		#my \$input=shift;
-		my \$matcher;
-
-		my \@multi;
-
-		for(shift){
-		@{[do {
-		my $index=0;
-		my $base={index=>0, item=>undef, multimatch=>$multimatch};
-
-		my $sub=plex [$sub], $base;
-		
-		my $d=join "\n", map {
-			$base->{index}=$_;
-			$base->{item}=$table->[$_];
-			$sub->render;
-			
-			} 0..$table->@*-2;
-
-
-		if($multimatch){
-			$d.=\'
-			\';
-			$d.=\'return @multi;\'
-		}
-		else {
-			$d.=\'$table->[@$table-1][Hustle::Table::count_]++;\'.
-			\'unshift @_, $table->[@$table-1];\'.
-			\'&{$table->[@$table-1][Hustle::Table::sub_]};\'
-		}
-		$d
-
-		}]}
-		}
-	}
-	';
-                ####################################################
-                # #default                                         #
-                #                                                  #
-                # \$table->[\@\$table-1][Hustle::Table::count_]++; #
-                # unshift \@_, \$table->[\@\$table-1];             #
-                # \&{\$table->[\@\$table-1][Hustle::Table::sub_]}; #
-                ####################################################
-
-	my $table=shift;
-	my $multimatch=shift;
-	my $top_level=plex [$template],{table=>$table, sub=>$sub_template, multimatch=>$multimatch};
-	my $s=$top_level->render;
-	#print $s, "\n";
-	eval $s;
-}
-
-
-
 
 sub _prepare_online_cached {
 	my $table=shift; #self
@@ -290,57 +105,56 @@ sub _prepare_online_cached {
 		$cache={};
 	}
 
+	#\$entry=\$table->[$index];
 	#\$matcher=\$entry->[Hustle::Table::matcher_];
 	my $sub_template=
 	'	 
-	\$entry=\$table->[$index];
 	@{[do {
-		my $d="";
+		my $do_capture;
+		my $d="if";
 		for($item->[Hustle::Table::type_]){
                         if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
-				#$d=\'($input=~/$matcher/o)\';
-				$d=\'($input=~$entry->[Hustle::Table::matcher_])\';
+			#$d.=\'($input=~m{\' . $item->[Hustle::Table::matcher_] .\'})\';
+				$d.=\'($input=~$table->[\'. $index .\'][Hustle::Table::matcher_] )\';
+				$do_capture=1;
                         }
                         elsif(/exact/){
-				#$d=\'($input eq $matcher)\';
-				$d=\'($input eq $entry->[Hustle::Table::matcher_])\';
+				$d.=\'($input eq "\'. $item->[Hustle::Table::matcher_]. \'")\';
                         }
-                        elsif(/start/){
-				#$d=\'(index($input, $matcher)==0)\';
-                                $d=\'(index($input, $entry->[Hustle::Table::matcher_])==0)\';
+                        elsif(/begin/){
+                                $d.=\'(index($input, "\' . $item->[Hustle::Table::matcher_]. \'")==0)\';
                         }
                         elsif(/end/){
-				#$d=\'(index(reverse($input), reverse($matcher))==0)\';
-                                $d=\'(index(reverse($input), reverse($entry->[Hustle::Table::matcher_]))==0)\';
+                                $d.=\'(index(reverse($input), reverse("\'. $item->[Hustle::Table::matcher_].\'"))==0)\';
                         }
                         elsif(/numeric/){
-			#$d=\'($matcher == $input)\';
-                                $d=\'($entry->[Hustle::Table::matcher_] == $input)\';
+                                $d.=\'(\' . $item->[Hustle::Table::matcher_] . \'== $input)\';
                         }
                         else{
                                 #assume a regex
-				#$d=\'($input=~/$matcher/o)\';
-				$d=\'($input=~$entry->[Hustle::Table::matcher_])\';
+				$item->[Hustle::Table::matcher_]=qr{$item->[Hustle::Table::matcher_]};
+				#say $item->[Hustle::Table::matcher_];
+				$d.=\'($input=~m{\' . $item->[Hustle::Table::matcher_].\'})\';
                         }
 		}
-		$d.=\' and (++$entry->[Hustle::Table::count_])\';
-		if($multimatch){
-				$d.= \' and push(@multi, $entry);\' 
-				#$entry->[Hustle::Table::sub_]->($entry, @_);\'
-		}
-		else{
-				$d.= \' and unshift(@_, $entry)\';
-				$d.=\' and $cache->{$input}=$entry\';
-				$d.=\' and return &{$entry->[Hustle::Table::sub_]};\'
+		$d.=\'{ \';
+
+		$d.=\'$entry=$table->[\'.$index.\'];\';
+		$d.=\' $cache->{$input}=$entry;\';
+		if($do_capture){
+			$d.=\' return $entry,[@{^CAPTURE}];\'; 
+		}	
+		else {
+			$d.=\' return $entry,[];\'; 
 
 		}
 
+
+		$d.=\'}\';
 		$d;
 	}]}
 	';
 
-	#my \$matcher;
-		#\$matcher=\$hit[Hustle::Table::matcher_];
 	my $template=
 	' sub {
 		my \$input=shift;
@@ -351,30 +165,16 @@ sub _prepare_online_cached {
 			#normal case, acutally executes potental regex
 			unless(\$hit[Hustle::Table::type_]){
 				if(\$input=~ \$hit[Hustle::Table::matcher_]){
-					++\$hit[Hustle::Table::count_];
-					unshift \@_, \$rhit;
-					delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
-					return;
+                                        return \$rhit;
 
-				}
-
-				#if the first case does not match, its because the cached entry is the default (undef matcher)
-				else{
-					++\$hit[Hustle::Table::count_];
-					unshift \@_, \$rhit;
-					\&{\$hit[Hustle::Table::sub_]};
-					#delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
-					return;
 				}
 			}
 			else{
 				#string or number
-				unshift \@_, \$rhit;
-				\&{\$hit[Hustle::Table::sub_]};
-				#delete \$cache->{\$input} if \&{\$hit[Hustle::Table::sub_]}; #delete if return is true
-				return;
+				return \$rhit;
 			}
 		}
+
 		@{[do {
 			my $index=0;
 			my $base={index=>0, item=>undef};
@@ -390,9 +190,7 @@ sub _prepare_online_cached {
 		}]}
 
 		\$entry=\$table->[\@\$table-1];
-		unshift \@_, \$entry;
-		\$cache->{\$input}=\$entry unless \&{\$entry->[Hustle::Table::sub_]};
-        	++\$entry->[Hustle::Table::count_];
+		\$cache->{\$input}=\$entry;
 	} ';
 
 	my $top_level=plex [$template],{table=>$table, cache=>$cache, sub=>$sub_template};
@@ -404,15 +202,6 @@ sub _prepare_online_cached {
 	#print $@;
 	$ss;
 }
-
-
-
-*hustle_add=*add;
-*hustle_remove=*remove;
-*hustle_set_default=*set_default;
-*hustle_reset_counter=*reset_counter;
-*hustle_prepare_dispatcher=*prepare_dispatcher;
-
 
 1;
 __END__

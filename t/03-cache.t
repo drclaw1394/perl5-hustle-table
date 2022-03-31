@@ -3,6 +3,7 @@ use warnings;
 
 use Hustle::Table;
 use Test::More;
+plan tests=>5;
 
 my $table=Hustle::Table->new;
 
@@ -12,29 +13,25 @@ my %cache;
 my %hit;
 my $capture;
 
-my $deleteFromCache=1;
 $table->add(
-	{matcher=>qr/^uncached/, 	sub=>sub {$hit{$_[0]}++; $deleteFromCache}},
-	{matcher=>"cached", type=>"begin",		sub=>sub {$hit{$_[0]}++; !$deleteFromCache}},
+	{matcher=>"B", type=>"begin",	value=>"Entry2"},
+	{matcher=>qr/^A/, 		value=>"Entry1"},
 );
 
 my $dispatcher=$table->prepare_dispatcher(cache=>\%cache);
 
-$dispatcher->("uncached");
-$dispatcher->("cached");
+my ($value)=$dispatcher->("A");
 
+ok keys %cache==1 , "Cache Entry added";
+ok $value->[1] eq "Entry1", "Correct value";
 
-ok ((keys(%cache)==1) and exists($cache{cached}), "Cache filtering ok");
+%cache=();
 
-$deleteFromCache=1;
+ok ((keys(%cache)==0), "Cache Entry removed");
 
-$dispatcher->("uncached");
-$dispatcher->("cached");
+$dispatcher->("A");
 
-ok ((keys(%cache)==1) and exists($cache{uncached}), "Cache filtering ok");
+my ($value)=$dispatcher->("A");
 
-
-done_testing;
-
-
-
+ok keys %cache==1 , "Cache Entry added";
+ok $value->[1] eq "Entry1", "Correct value";

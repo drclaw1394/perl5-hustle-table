@@ -1,17 +1,14 @@
 Revision history for Perl extension Hustle::Table
-0.5.1	Tue 22 Mar 2022 09:35:40 AEST
-	- Added multimatch support
-	- Multimatch returns an array of match entries
-	- Multimatch allows for sub entry to be any scalar, not just a code reference
-	- Cached dispatcher does not support multimatch as the cache lookup is via a hash
 
-0.5.0 	Tue 15 Mar 2022 21:08:05 AEST
-	- Fixed missing context for default entry in constructor
-	- Removed 'offline' dispatcher type. 
-	- Added matcher type specification for regex/exact stirng/start string/end string/numeric
-	- Updated documentation discussing the above and general fixes
-	- Upated tests to account for new matcher types and single dispatch type
-	
+0.5.0 	Thu 31 Mar 2022 20:15:33 AEST
+	- Major rewrite
+	- Simplified and restricted scope
+	- Table entry stores any scalar value, not just code references
+	- Regex, begin, end, exact and numeric matchers
+	- Dispatcher returns matching table entry and regex captures
+	- Caching always enabled. external management by user application
+
+
 0.4.1   Mon  7 Mar 2022 17:27:52 AEST
 	- Remove debugging output which should not have been active
 	- Remove more unused code
