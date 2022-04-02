@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.5.0");
+use version; our $VERSION=version->declare("v0.5.1");
 
 use strict;
 use warnings;
@@ -133,7 +133,8 @@ sub _prepare_online_cached {
                         else{
                                 #assume a regex
 				$item->[Hustle::Table::matcher_]=qr{$item->[Hustle::Table::matcher_]};
-				#say $item->[Hustle::Table::matcher_];
+				$item->[Hustle::Table::type_]=undef;
+				$do_capture=1;
 				$d.=\'($input=~m{\' . $item->[Hustle::Table::matcher_].\'})\';
                         }
 		}
@@ -141,6 +142,7 @@ sub _prepare_online_cached {
 
 		$d.=\'$entry=$table->[\'.$index.\'];\';
 		$d.=\' $cache->{$input}=$entry;\';
+
 		if($do_capture){
 			$d.=\' return $entry,[@{^CAPTURE}];\'; 
 		}	
@@ -165,13 +167,13 @@ sub _prepare_online_cached {
 			#normal case, acutally executes potental regex
 			unless(\$hit[Hustle::Table::type_]){
 				if(\$input=~ \$hit[Hustle::Table::matcher_]){
-                                        return \$rhit;
+                                        return \$rhit, [\@{^CAPTURE}];
 
 				}
 			}
 			else{
 				#string or number
-				return \$rhit;
+				return \$rhit,[];
 			}
 		}
 
@@ -184,7 +186,6 @@ sub _prepare_online_cached {
 				$base->{index}=$_;
 				$base->{item}=$table->[$_];
 				my $s=$sub->render;
-				#print $s;
 				$s;
 			} 0..$table->@*-2;
 		}]}

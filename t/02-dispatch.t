@@ -25,15 +25,12 @@ $table->add({matcher=>qr/re(g)ex/, value=>sub {
 );
 
 #set default
-$table->set_default(sub { print "DEFAULT: $_[0]\n";ok $_[0] eq "unmatched", "Defualt as expected"});
+$table->set_default(sub {ok $_[0] eq "unmatched", "Defualt as expected"});
 
 
 my $dispatcher=$table->prepare_dispatcher();
 
 
-use Data::Dumper;
-use feature "say";
-say Dumper $dispatcher;
 #Execute dispatcher and tests
 my ($entry,$capture);
 my @inputs=(
@@ -48,15 +45,6 @@ for(@inputs){
 	($entry,$capture)=$dispatcher->($_);
 	$entry->[1]($_, $capture);
 }
-exit;
-#[1]("exact");
-
-
-#$dispatcher->("start of a sentence")[1]("start of a sentence");
-#$dispatcher->("match at the end")[1]("match at the end");
-#$dispatcher->(1234)[1](1234);
-my @res=$dispatcher->("regex");
-#$dispatcher->("unmatched")[1]("unmatched");
 
 
 
