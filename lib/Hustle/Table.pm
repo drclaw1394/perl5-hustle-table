@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.5.2");
+use version; our $VERSION=version->declare("v0.5.3");
 
 use strict;
 use warnings;
