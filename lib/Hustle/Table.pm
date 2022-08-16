@@ -1,5 +1,5 @@
 package Hustle::Table;
-use version; our $VERSION=version->declare("v0.5.4");
+use version; our $VERSION=version->declare("v0.5.5");
 
 use strict;
 use warnings;
@@ -61,7 +61,7 @@ sub add {
 
 		}
 
-		croak "matcher not specified" unless defined $entry->[matcher_];
+		#croak "matcher not specified" unless defined $entry->[matcher_];
 
 		if(defined $entry->[matcher_]){
 			#Append to the end of the normal matching list 
