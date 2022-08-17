@@ -6,9 +6,8 @@ use warnings;
 
 use Template::Plex;
 
-use feature "refaliasing";
+#use feature "refaliasing";
 no warnings "experimental";
-use feature "state";
 
 use Carp qw<carp croak>;
 
@@ -112,7 +111,7 @@ sub _prepare_online_cached {
 		my $d="";
 		for($item->[Hustle::Table::type_]){
                         if(ref($item->[Hustle::Table::matcher_]) eq "Regexp"){
-			$d.=\'(@capture=$input=~$table->[\'. $index .\'][Hustle::Table::matcher_] )\';
+			$d.=\'(@$capture=$input=~$table->[\'. $index .\'][Hustle::Table::matcher_] )\';
 				$do_capture=1;
                         }
 			elsif(ref($item->[Hustle::Table::matcher_]) eq "CODE"){
@@ -142,7 +141,7 @@ sub _prepare_online_cached {
 
 
 		if($do_capture){
-			$d.=\' and return ($cache->{$input}=$table->[\'.$index.\'], @{^CAPTURE}?\@capture:());\';
+			$d.=\' and return ($cache->{$input}=$table->[\'.$index.\'], @{^CAPTURE}?$capture:());\';
 		}	
 		else {
 			$d.=\' and return ($cache->{$input}=$table->[\'.$index.\']);\';
@@ -156,18 +155,17 @@ sub _prepare_online_cached {
 	'
 	my \$input;
 	my \$entry;
-	my \@capture;
+	my \$capture;
 	sub {
 		\$input=shift;
 		\$entry=\$cache->{\$input};
-
 		#Locate cached regex types, perform capture, and return
 		#Locate cached non regex types and return
 		#\$entry
 			\$entry->[Hustle::Table::type_]
 			? return \$entry
-			: (\@capture=\$input=~ \$entry->[Hustle::Table::matcher_])
-				and return (\$entry, \@{^CAPTURE}?\\\\\@capture:())
+			: (\@\$capture=\$input=~ \$entry->[Hustle::Table::matcher_])
+				and return (\$entry, \@{^CAPTURE}?\$capture:())
 
 
 			if \$entry;

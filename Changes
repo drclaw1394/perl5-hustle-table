@@ -1,7 +1,6 @@
 Revision history for Perl extension Hustle::Table
 
-0.5.5 	Mon  1 Aug 2022 09:03:54 AEST
-
+0.5.5 	Wed 17 Aug 2022 15:14:43 AEST
 	- Added subroutine matching type. A CODE ref can be used to match the input.
 	  Called with the input as the first argument and a reference to the entry value
 	  as the second element
@@ -15,6 +14,7 @@ Revision history for Perl extension Hustle::Table
 	- Fixed documentation around required elements when adding via array
 	  ref should take 3 elements. Was listed as 6
 
+	- Reduced scope creation for more performance improvements
 	
 
 0.5.4 	Thu 28 Jul 2022 21:40:32 AEST

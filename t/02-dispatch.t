@@ -4,7 +4,7 @@ use warnings;
 use Hustle::Table;
 use Test::More;
 
-plan  tests=>7;
+plan  tests=>8;
 
 my $table=Hustle::Table->new;
 
@@ -17,9 +17,10 @@ $table->add({matcher=>"end", type=>"end", value=>sub { ok $_[0] =~ /end$/, "End 
 
 $table->add({matcher=>1234, type=>"numeric", value=>sub { ok $_[0] == 1234, "Numeric match"}});
 
-$table->add({matcher=>qr/re(g)ex/, value=>sub { 
+$table->add({matcher=>qr/re(g)(e)x/, value=>sub { 
 		ok $_[0] eq "regex", "regex match";
 		ok $_[1][0] eq "g", "regex capture ok";
+		ok $_[1][1] eq "e", "regex capture ok";
 	}}
 );
 
