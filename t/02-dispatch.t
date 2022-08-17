@@ -4,12 +4,11 @@ use warnings;
 use Hustle::Table;
 use Test::More;
 
-plan  tests=>6;
+plan  tests=>7;
 
 my $table=Hustle::Table->new;
 
 #add entries
-
 $table->add({matcher=>"exact", type=>"exact", value=>sub { ok $_[0] eq "exact", "Exact match"}});
 
 $table->add({matcher=>"start", type=>"start", value=>sub { ok $_[0] =~ /^start/, "Start match"}});
@@ -23,6 +22,18 @@ $table->add({matcher=>qr/re(g)ex/, value=>sub {
 		ok $_[1][0] eq "g", "regex capture ok";
 	}}
 );
+
+my $value;
+$value=sub { ok  $_[0] eq "sub", "Sub ok"; };
+
+my $sub;
+$sub=sub {
+	$_[0] eq "sub" 
+		and ref($_[1]) 
+		and $_[1] == $value;
+};
+
+$table->add([ $sub , $value, undef]);
 
 #set default
 $table->set_default(sub {ok $_[0] eq "unmatched", "Defualt as expected"});
@@ -38,13 +49,11 @@ my @inputs=(
 		"match at the end",
 		1234,
 		"regex",
-		"unmatched"
-	);
+		"unmatched",
+		"sub"
+);
 
 for(@inputs){
 	($entry,$capture)=$dispatcher->($_);
 	$entry->[1]($_, $capture);
 }
-
-
-
