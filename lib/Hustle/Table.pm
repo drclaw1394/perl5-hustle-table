@@ -164,6 +164,7 @@ sub _prepare_online_cached {
 	'
 	my \$input;
 	my \$entry;
+  no warnings "numeric";
 	sub {
 		\$input=shift;
 		\$entry=\$cache->{\$input};

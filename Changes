@@ -5,11 +5,16 @@ v0.6.0  2023-06-07
       regexp directly. Previously these would not be detected, and assumed a
       string to then be compiled into a core regexp
     - Added github actions to repo
+  [tests]
+    - Added test for regexp matching with a no capture groups
+    - Added test for regexp matching with a capture group not capturing
     
   [fixes]
     - captures are now copied into a new array and not a shared array across the table.
     - captures are now returned as per the documentation for regexps with no
       captured items (i.e ref to empty array, instead of undef)
+    - Turn off 'not numeric' warnings in main table code to remove noise when
+      testing a string input against a numeric matcher
 
   [pod]
     - Typo fixes.
