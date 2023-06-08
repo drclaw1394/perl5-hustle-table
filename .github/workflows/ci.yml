@@ -1,11 +1,18 @@
+<<<<<<< HEAD
 name: Perl
+=======
+name: CI
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
 
 on:
   push:
   pull_request:
   workflow_dispatch:
+<<<<<<< HEAD
   schedule:
     - cron: '42 5 * * *'
+=======
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
 
 jobs:
   test:
@@ -13,7 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest, macos-latest, windows-latest]
+<<<<<<< HEAD
         perl: [ '5.36', '5.34','5.32','5.30', '5.28', '5.26' ]
+=======
+        perl: [ '5.30', '5.36' ]
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
         exclude:
           - runner: windows-latest
             perl: '5.36'
@@ -22,7 +33,11 @@ jobs:
     name: OS ${{matrix.runner}} Perl ${{matrix.perl}}
 
     steps:
+<<<<<<< HEAD
     - uses: actions/checkout@v3
+=======
+    - uses: actions/checkout@v2
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
 
     - name: Set up perl
       uses: shogo82148/actions-setup-perl@v1
@@ -39,6 +54,15 @@ jobs:
         cpanm -v
         cpanm --installdeps --notest .
 
+<<<<<<< HEAD
+=======
+    - name: Run tests
+      run: |
+        perl Makefile.PL
+        make
+        make test
+
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
     - name: Show Errors on Windows
       if:  ${{ failure() && startsWith( matrix.runner, 'windows-')}}
       run: |
@@ -56,6 +80,7 @@ jobs:
       run: |
          cat  /Users/runner/.cpanm/work/*/build.log
 
+<<<<<<< HEAD
     - name: Run tests
       env:
         AUTHOR_TESTING: 1
@@ -66,3 +91,5 @@ jobs:
         make test
 
 
+=======
+>>>>>>> 64ed8f35e34ddce6437f5309cbf4e5241af68521
