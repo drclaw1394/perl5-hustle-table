@@ -2,10 +2,8 @@ name: Perl
 
 on:
   push:
-  pull_request:
-  workflow_dispatch:
-  schedule:
-    - cron: '42 5 * * *'
+    branches:
+      - main
 
 jobs:
   test:
