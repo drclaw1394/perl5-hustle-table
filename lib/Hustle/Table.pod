@@ -48,7 +48,7 @@ This module provides a class to construct a routing table and build a high
 performance dispatcher from it. 
 
 A table can have any combination of regex, subroutine, exact string, begin
-string end string or numeric matching of entries. The order in which the
+string, end string or numeric matching of entries. The order in which the
 entries are added defines their precedence. First in, first tested.
 
 In the case of no entries matching the input, a default/fallback entry always
@@ -58,16 +58,17 @@ Once all the entries have been added to the table, a dispatcher is
 prepared/created. The dispatcher is an anonymous subroutine, which tests its
 argument against the matcher in each entry in the table.
 
-It returns a list containing the first entry that matched, and if applicable,
-an anonymous array of any captures from regex matching.
+From v0.7.0 It returns a list containing pairs of matching entries and an
+anonymous array of any captures from regex matching if applicable. 
+
+Prior to v0.7.0, testing would stop after the first match.
 
 If more entries are required to be added to the table, the dispatcher must be
 prepared again.
 
 A cache (hash) is used to drastically improve table lookup performance. Entries
-are automatically added to the cache. A cache hit with a regex matcher will re
-execute the regexp to ensure the captures are returned as expected. Removal of
-cache entries is up to the user to implement on a application basis.
+are automatically added to the cache. Removal of cache entries is up to the
+user to implement on a application basis.
 
 =head2 API Change
 
