@@ -2,6 +2,7 @@ Revision history for Perl extension Hustle::Table
 v0.7.0 2025-01-11
   [improvments]
     - Now will return multiple matches not just first match
+    - Dispatcher will process a list in a single call
     - Will always return the default entry at end of match list
     - Significat performance improvments with cached regexp matching
 

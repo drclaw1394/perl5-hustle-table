@@ -63,7 +63,6 @@ sub add {
 
 		}
 
-
 		if(defined $entry->[matcher_]){
 			#Append to the end of the normal matching list 
 			splice @$self, @$self-1,0, $entry;
@@ -164,33 +163,37 @@ sub _prepare_online_cached {
 
 	my $template=
 	'
-	my \$input;
 	my \$entry;
   no warnings "numeric";
 	sub {
-		\$input=shift;
-		\$entry=\$cache->{\$input};
-    \$entry and return \$entry->\@*;
+    my \@output;
+    for my \$input (\@_){
+      \$entry=\$cache->{\$input};
+      \$entry and return \$entry->\@*;
 
 
 
-		#Build the logic for matcher entry in order of listing
-		@{[do {
-			my $index=0;
-			my $base={index=>0, item=>undef};
-			my $sub=$self->load([$sub], $base);
-			map {
-				$base->{index}=$_;
-				$base->{item}=$table->[$_];
-				my $s=$sub->render;
-				$s;
-			} 0..$table->@*-2;
-		}]}
+      #Build the logic for matcher entry in order of listing
+      @{[do {
+        my $index=0;
+        my $base={index=>0, item=>undef};
+        my $sub=$self->load([$sub], $base);
+        map {
+          $base->{index}=$_;
+          $base->{item}=$table->[$_];
+          my $s=$sub->render;
+          $s;
+        } 0..$table->@*-2;
+      }]}
 
 
-		#If we get here we cache and return the default matcher
-		push \$cache->{\$input}->\@*, \$table->[\@\$table-1], undef;
-    return \$cache->{\$input}->@*;
+      #If we get here we cache and return the default matcher
+      push \$cache->{\$input}->\@*, \$table->[\@\$table-1], undef;
+      
+      # Build output
+      push \@output, \$cache->{\$input}->@*;
+    }
+    return \@output;
 	} ';
 
 	my $top_level=Template::Plex->load([$template],{table=>$table, cache=>$cache, sub=>$sub_template});
