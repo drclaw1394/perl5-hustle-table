@@ -90,6 +90,11 @@ sub prepare_dispatcher{
 	my $self=shift;
 	my %options=@_;
 	my $cache=$options{cache}//{};
+
+  # Force delete cached entries when rebuilding dispather
+  for(keys %$cache){
+    delete $cache->{$_};
+  }
 	$self->_prepare_online_cached($cache);
 }
 
@@ -108,7 +113,6 @@ sub _prepare_online_cached {
 	my $sub_template=
 	'	 
 	@{[do {
-		my $do_capture;
 		my $d="";
 
     my $pack=ref $item->[Hustle::Table::matcher_];
@@ -121,8 +125,7 @@ sub _prepare_online_cached {
 
 		for($item->[Hustle::Table::type_]){
       if($is_regex){
-			  $d.=\'($input=~$table->[\'. $index .\'][Hustle::Table::matcher_] )\';
-				$do_capture=1;
+        $d.=\'($input=~$table->[\'. $index .\'][Hustle::Table::matcher_] )\';
       }
 			elsif(ref($item->[Hustle::Table::matcher_]) eq "CODE"){
 
@@ -144,13 +147,13 @@ sub _prepare_online_cached {
         #assume a regex - even if a basic string
 				$item->[Hustle::Table::matcher_]=qr{$item->[Hustle::Table::matcher_]};
 				$item->[Hustle::Table::type_]=undef;
-				$do_capture=1;
-				$d.=\'($input=~m{\' . $item->[Hustle::Table::matcher_].\'})\';
-                        }
+        $is_regex=1;
+        redo;
+      }
 		}
 
 
-		if($do_capture){
+		if($is_regex){
 			$d.=\' and (push $cache->{$input}->@*, $table->[\'.$index.\'], [@{^CAPTURE}]);\';
 		}	
 		else {
@@ -187,11 +190,13 @@ sub _prepare_online_cached {
       }]}
 
 
-      #If we get here we cache and return the default matcher
-      push \$cache->{\$input}->\@*, \$table->[\@\$table-1], undef;
-      
-      # Build output
-      push \@output, \$cache->{\$input}->@*;
+      for(\$cache->{\$input}//=[]){
+        # If we get here and nothing matched, we force default match
+        push \$_->\@*, \$table->[\@\$table-1], undef unless \$_->\@*;
+        
+        # Copy to output
+        push \@output, \$_->@*;
+      } 
     }
     return \@output;
 	} ';
