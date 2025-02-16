@@ -30,7 +30,7 @@ WriteMakefile(
 			repository =>{
 				type => "git",
 				url => "git://github.com/drclaw1394/perl5-hustle-table.git",
-				web => "http://github.com/drclaw1394/perl5-hustle-table",
+				web => "https://github.com/drclaw1394/perl5-hustle-table",
 			}
 		}
 	}
