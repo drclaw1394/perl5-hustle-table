@@ -5,7 +5,6 @@ use strict;
 use warnings;
 
 use Template::Plex;
-use Error::Show;
 
 #use feature "refaliasing";
 no warnings "experimental";
@@ -212,10 +211,6 @@ sub _prepare_online_cached {
   $top_level->cleanup;
   local $@;
   my $ss=eval $s;
-  if($@){
-    print STDERR $s;
-    print STDERR Error::Show::context error=>$@, program=>$s;
-  } 
   $ss;
 }
 
