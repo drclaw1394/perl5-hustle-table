@@ -1,10 +1,11 @@
 package Hustle::Table;
-our $VERSION="v0.7.2";
+our $VERSION="v0.7.3";
 
 use strict;
 use warnings;
 
 use Template::Plex;
+use Error::Show;
 
 #use feature "refaliasing";
 no warnings "experimental";
@@ -204,9 +205,17 @@ sub _prepare_online_cached {
 	} ';
 
   my $top_level=Template::Plex->load([$template],{table=>$table, cache=>$cache, sub=>$sub_template});
+
+  local $"="";    # Make sure the string join operator in templates is as expeected
+
   my $s=$top_level->render;
   $top_level->cleanup;
+  local $@;
   my $ss=eval $s;
+  if($@){
+    print STDERR $s;
+    print STDERR Error::Show::context error=>$@, program=>$s;
+  } 
   $ss;
 }
 
