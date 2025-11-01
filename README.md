@@ -56,8 +56,15 @@ Call dispatcher to return the matching entries and any RegExp captures. Multiple
 items can be tested in a single call
 
 ```perl
-my @results=$dispatch->("thing to match", "another thing", ...);      
-# @results contains pairs of entries and capture arrays
+my @pairs=$dispatch->("thing to match", "another thing", ...);        
+
+# @pairs contains pairs of entries and capture arrays
+
+# perl v5.36 
+for my($e, $c)(@pairs){
+  $e->[1]; # The value 
+  $c;      # Possible captures
+}
 ```
 
 # DESCRIPTION
@@ -181,12 +188,17 @@ An entry is an anonymous array containing the following elements:
     are:
 
     ```perl
-    undef   =>    matcher treated as a RegExp source stirng. Creates a RegExp
-    internally "code"  =>  uses code refernce to match argument
+    undef   =>    matcher treated as a RegExp source stirng. 
 
-    "begin"       =>      matcher string matches the begining of input string "end"         =>
-    matcher string matches the end of input string "exact"        =>      matcher string
-    matches string equality "numeric" =>  matcher number matches numeric equality
+    "code"  =>  uses code refernce to match argument
+
+    "begin"       =>      matcher string matches the begining of input string 
+
+    "end"   =>  matcher string matches the end of input string 
+
+    "exact"       =>      matcher string matches string equality 
+
+    "numeric" =>  matcher number matches numeric equality
     ```
 
 ## Adding
@@ -281,8 +293,11 @@ matcher).
 ```perl
 my @pairs=$dispatcher->("input");
 
-# perl v5.36 for my($e, $c)(@pairs){ $e->[1]; # The value $c;      # Possible
-captures }
+# perl v5.36 
+for my($e, $c)(@pairs){
+  $e->[1]; # The value 
+  $c;      # Possible captures
+}
 ```
 
 The dispatcher is simply a sub, which you call with the input to match against
